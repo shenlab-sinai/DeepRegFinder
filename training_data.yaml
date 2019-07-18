@@ -27,12 +27,10 @@ TPMs:
  - './inputs/h1-p300-narrowpeaks.bed'
  - './inputs/h1-dnase-seq-peaks.bed'
 
-# Path for active poised folder that has bam files with sense and antisense data
-# Should be of format:
-# ap_data/
-#     sense_file.bam
-#     antisense_file.bam
-active_poised_folder : '/home/kims/work/pipeline_testing/ap_data/'
+
+#Path to data with the sense and antisense bam file
+sense_bam_file : '/home/kims/work/pipeline_testing/ap_data/srr1745515.bam'
+antisense_bam_file : '/home/kims/work/pipeline_testing/ap_data/srr1745516.bam'
 
 # Path for histone folder that has bam files with sense and antisense data
 # Should be of format:
@@ -43,11 +41,9 @@ active_poised_folder : '/home/kims/work/pipeline_testing/ap_data/'
 #     histone2/
 #         histone2_chipseqassay_rep1.bam
 #         histone2_chipseqassay_rep2.bam
+# Note: histone files must be of format xxx_repN.bam where N represents the rep number
           
 #Path to histone folder that has each reps of the chip-seq assay for each histone mark in their own folder
 histone_folder : '/home/kims/work/pipeline_testing/histones/'
 
-#Path to data with the sense and antisense bam file
-#ASK ABOUT THIS
-sense_bam_file : '/home/kims/work/pipeline_testing/srr1745515.bam'
-antisense_bam_file : '/home/kims/work/pipeline_testing/srr1745516.bam'
+

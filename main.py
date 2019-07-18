@@ -42,14 +42,16 @@ def main():
     #Data for enhancer file creation 
     distal_num = dataMap['distal_bp_distance']
     
-    #Data for tfbs and TPMs file creation
+    #Data for TFBS and TPMs file creation
     TFBS, TPMs = dataMap['TFBS'], dataMap['TPMs']
     
-    #Data for active poised and histone mark file creation
-    ap_path, histone_path = dataMap['active_poised_folder'], dataMap['histone_folder']
-    
-    #ASK ABOUT THIS
+    #Data for active poised clustering
     sense_bam_file, antisense_bam_file= dataMap['sense_bam_file'], dataMap['antisense_bam_file']
+    
+    #Data for histone mark file creation
+    histone_path = dataMap['histone_folder']
+    
+    
     
     
     """
@@ -67,11 +69,12 @@ def main():
                                  
     #process_tss(tss_file, DHS_file, genome, distal_num, output_folder)
     print('Finished processing tss')
-    tss_no_dhs = './'+  output_folder + '/tss_data/hcc_sorted_chr.bed'
+    tss_no_dhs = './'+  output_folder + '/tss_data/tss_no_dhs_intersect.bed'
+    slopped_tss_no_dhs = './'+  output_folder + '/tss_data/tss_no_dhs_intersect_slopped.bed'
     slopped_tss = './'+  output_folder + '/tss_data/true_slopped_tss.bed'
     true_tss = './'+  output_folder + '/tss_data/true_tss.bed'
     
-    #process_enhancers(p300_file, DHS_file, slopped_tss, output_folder)
+    #process_enhancers(p300_file, DHS_file, slopped_tss_no_dhs, output_folder)
     print('Finished processing enhancers')
     enhancers = './'+  output_folder + '/enhancer_data/strict_enhancers.bed'
     enhancers_saf = './'+  output_folder + '/enhancer_data/strict_enhancers.saf'
@@ -83,11 +86,13 @@ def main():
     #process_tpms(slopped_tss, TPMs, final_tfbs_file, output_folder)
     print('Finished processing TPMs')
 
-    #process_background(bg_genome, tss_no_dhs, DHS_file, enhancers, final_tfbs_file, output_folder)
+    #process_background(bg_genome, slopped_tss_no_dhs, DHS_file, enhancers, final_tfbs_file, output_folder)
     print('Finished processing background')
     final_background = './'+  output_folder + '/background_data/final_bg.bed'
     
-    #sense_file, antisense_file = process_ap(enhancers_saf, ap_path, output_folder)
+    #process_ap(enhancers_saf, sense_bam_file, antisense_bam_file, output_folder)
+    sense_file = './'+  output_folder + '/active_poised_data/sense_bam-bincounts.txt'
+    antisense_file = './'+  output_folder + '/active_poised_data/antisense_bam-bincounts.txt'
     print('Finished processing active/poised')
     
     #process_histones(genome_saf_format, histone_path, output_folder)

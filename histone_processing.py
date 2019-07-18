@@ -28,7 +28,6 @@ def process_histones(genome_saf, histone_path, output_folder):
             rep_name = os.path.basename(rep)
             rep_num = rep_name.split('rep')[1][0]
             out_name = out_path + "/r" + rep_num + "-bincounts.txt"
-            print(out_name)
             subprocess.call(["featureCounts", rep, "-a", genome_saf, "-O", "-F", "SAF", "-o", out_name]) 
             
     histone_cols = {}

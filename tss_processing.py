@@ -60,14 +60,17 @@ def process_tss(tss_file, dhs_file, set_genome, distal_num, output_folder):
     coding_tss_grouped = human_tss_df.groupby('Gene stable ID')
     clustered_coding_tss = coding_tss_grouped.apply(cluster_gene_tss, bps_cutoff=500, verbose=0)
   
-    clustered_coding_tss.to_csv(tss_out_folder + 'human_coding_clustered_TSS.tsv', sep="\t", index=None)
+    clustered_coding_tss.to_csv(tss_out_folder + 'clustered_TSS.tsv', sep="\t", index=None)
     
-    subprocess.call(['./format_tss.sh', tss_out_folder + 'human_coding_clustered_TSS.tsv', tss_out_folder])
+    subprocess.call(['./format_tss.sh', tss_out_folder + 'clustered_TSS.tsv', tss_out_folder])
     
-    tss_temp = BedTool(tss_out_folder + 'hcc_sorted_chr.bed')
+    tss_no_dhs_intersect = BedTool(tss_out_folder + 'tss_no_dhs_intersect.bed')
     dhs = BedTool(dhs_file)
-    true_tss = tss_temp.intersect(dhs)
+    true_tss = tss_no_dhs_intersect.intersect(dhs)
     true_tss.saveas(tss_out_folder + 'true_tss.bed')
     slopped_tss = true_tss.slop(b=distal_num, genome=set_genome)
     slopped_tss.saveas(tss_out_folder + 'true_slopped_tss.bed')
+    
+    slopped_tss_no_dhs = tss_no_dhs_intersect.slop(b=distal_num, genome=set_genome)
+    slopped_tss_no_dhs.saveas(tss_out_folder + 'tss_no_dhs_intersect_slopped.bed')
     

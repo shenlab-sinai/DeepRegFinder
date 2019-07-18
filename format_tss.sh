@@ -3,7 +3,7 @@
 out1="${2}human_coding_clustered_tss.bed"
 out2="${2}hcc_no_header.bed"
 out3="${2}hcc_sorted.bed"
-out4="${2}hcc_sorted_chr.bed"
+out4="${2}tss_no_dhs_intersect.bed"
 
 #Formats to a bed file
 awk 'OFS="\t" {print $2, $3, $3}' $1 > $out1

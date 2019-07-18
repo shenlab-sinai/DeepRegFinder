@@ -43,10 +43,9 @@ def process_genome(genome, window_width, number_of_windows, valids, output_folde
     if not os.path.exists(gene_out_folder):
         os.mkdir(gene_out_folder)
         
-    #Creation of text file of valid chromosomes to find in larger genome file
     bg_window_width = window_width * number_of_windows
 
-    
+    #Creation of text file of valid chromosomes to find in larger genome file
     valids = np.array(valids)
     valids_file = gene_out_folder + "valids.txt"
     with open(valids_file, "w") as f:
