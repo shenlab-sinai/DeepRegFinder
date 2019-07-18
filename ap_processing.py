@@ -4,24 +4,20 @@ import os
 import glob
 import subprocess
 
-#Path to enhancer bed file
-# filt_genome_path = 'strict_enhancers.bed'
-
-# #Path to the folder with rep data
-# ap_path = '/home/kims/work/enhancer-prediction-data/ap_data/'
-
-def process_ap(enhancers, ap_path):
-    saf_name = enhancers.split('.')[1] + '.saf'
-    bed_to_saf(enhancers, saf_name)
-   
+"""
+Runs feature counts on all bam files in the active_poised folder
+Returns names of the files created after running featureCounts
+"""
+def process_ap(enhancers_saf, ap_path, output_folder):
+    ap_out_folder = './' + output_folder + '/active_poised_data/'
+    if not os.path.exists(ap_out_folder):
+        os.mkdir(ap_out_folder)
+    
+    out_named = []
     counter = 1
-    os.chdir(ap_path)
-
     for rep in glob.glob(ap_path + "/*.bam"):
-        print(os.getcwd())
-        rep_name =  os.path.basename(rep)
-        out_name = "srr_r" + str(counter) + "bam-bincounts.txt"
-        saf_path = "../" + saf_name
-
-        subprocess.call(["featureCounts", rep_name, "-a", saf_path, "-O", "-F", "SAF", "-o", out_name]) 
+        out_name = ap_out_folder + "srr_r" + str(counter) + "bam-bincounts.txt"
+        out_named.append(out_name)
+        subprocess.call(["featureCounts", rep, "-a", enhancers_saf, "-O", "-F", "SAF", "-o", out_name]) 
         counter += 1
+    return out_named

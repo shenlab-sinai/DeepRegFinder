@@ -9,121 +9,107 @@ from tfbs_tpms_processing import process_tfbs, process_tpms
 from background_processing import process_background
 from ap_processing import process_ap
 from histone_processing import process_histones
-from compress_index_files import compress_index_files, compress_index_histone_file
+from compress_index_files import compress_index_files, remove_header_histone_file
 from train_histone import make_histone_tensors, clustering
 from train_sequence import make_sequence_tensors
 from generate_unified_indices import make_training_testing_tensors
 import yaml
 import sys
+import os
 
+"""
+First argument: input .yaml file 
+Second argument: name for output folder where files stored
+"""
 def main():
     """
     Taking in input data from yaml file
     """
     params = sys.argv[1]
-    print(params)
     with open(params) as f:
         # use safe_load instead load
         dataMap = yaml.safe_load(f)
         
- 
-    #Data for Genome Processing (Making 100 kb windowed bed + saf + 2kb windowed)
+    #Data for Genome Processing (Making 100 kb windowed bed + saf + bg windowed)
     genome = dataMap['genome']
-    window_width = dataMap['window_width']
-    bg_window_width = dataMap['background_window_width']
+    window_width = dataMap['window_resolution']
+    bg_window_width = dataMap['number_of_windows']
     valids = dataMap['valid_chromosomes']
 
-    #DNase/DHS file
-    DHS_file = dataMap['DHS_file']
-    
-    #Data for TSS file creation
-    tss_file = dataMap['tss_file']
-    
-    #p300 file
-    p300_file = dataMap['p300_file']
-    
+    #Peak data for DHS, tss, p300
+    DHS_file, tss_file, p300_file = dataMap['DHS_file'], dataMap['tss_file'], dataMap['p300_file']
+ 
     #Data for enhancer file creation 
     distal_num = dataMap['distal_bp_distance']
-    tss_for_enhancer = dataMap['tss_for_enhancer'] #BED file of human TSS to isolate those DHS p300 binding sites that are distal to the TSS. 
     
-    #Data for tfbs file creation
-    TFBS = dataMap['TFBS']
-
+    #Data for tfbs and TPMs file creation
+    TFBS, TPMs = dataMap['TFBS'], dataMap['TPMs']
     
-    #Data for tpms file creation
-    TPMs = []
-    TPMs.append(DHS_file)
-    TPMs.append(p300_file)
+    #Data for active poised and histone mark file creation
+    ap_path, histone_path = dataMap['active_poised_folder'], dataMap['histone_folder']
     
-    #Data for AP file creation
-    #Path to the folder with rep data
-    ap_path = dataMap['active_poised_folder']
-    
-    #Data for histone file creation
-    histone_path = dataMap['histone_folder']
-    
-    #Data to make pytorch files
-    sense_bam_file = dataMap['sense_bam_file']
-    antisense_bam_file = dataMap['antisense_bam_file']
+    #ASK ABOUT THIS
+    sense_bam_file, antisense_bam_file= dataMap['sense_bam_file'], dataMap['antisense_bam_file']
     
     
     """
     Calling functions to process data
     """
-    #process_genome(genome, window_width, bg_window_width, valids)
+    # Creating a tmp directory based on input
+    output_folder = sys.argv[2]
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
+        
+    #process_genome(genome, window_width, bg_window_width, valids, output_folder)
     print('Finished processing genome')
+    bg_genome = './'+  output_folder + '/genome_data/bgwindowed.filtered.bed'
+    genome_saf_format = './'+  output_folder + '/genome_data/windowed.filtered.saf'
                                  
-    #process_tss(tss_file, DHS_file, genome)
+    #process_tss(tss_file, DHS_file, genome, distal_num, output_folder)
     print('Finished processing tss')
+    tss_no_dhs = './'+  output_folder + '/tss_data/hcc_sorted_chr.bed'
+    slopped_tss = './'+  output_folder + '/tss_data/true_slopped_tss.bed'
+    true_tss = './'+  output_folder + '/tss_data/true_tss.bed'
     
-    #TSS data!!!!!
-    #process_enhancers(p300=p300_file, DHS=DHS_file, distal_num=distal_num, set_genome = genome,tss = tss_for_enhancer)
+    #process_enhancers(p300_file, DHS_file, slopped_tss, output_folder)
     print('Finished processing enhancers')
+    enhancers = './'+  output_folder + '/enhancer_data/strict_enhancers.bed'
+    enhancers_saf = './'+  output_folder + '/enhancer_data/strict_enhancers.saf'
     
-    #Data for tfbs file creation
-    #TSS Data!!!!
-    tss_for_tfbs_tpms = 'true_slopped_tss.bed'
-    
-    #process_tfbs(tss_for_tfbs_tpms, TFBS)
+    #process_tfbs(slopped_tss, TFBS, output_folder)
     print('Finished processing TFBS')
-    final_tfbs_file = 'final_tfbs.bed'
+    final_tfbs_file = './'+  output_folder + '/tfbs_data/final_tfbs.bed'
     
-    
-    process_tpms(tss_for_tfbs_tpms, TPMs, final_tfbs_file)
+    #process_tpms(slopped_tss, TPMs, final_tfbs_file, output_folder)
     print('Finished processing TPMs')
-    
-    #Data for background file creation
-    #Genome is from processing pipeline and is windowed by 100 bp, filtered, and sorted
-    bg_genome = '2kbwindowed.filtered.bed'
-    #TSS input is all TSS, not just TSS not intersected with DHS
-    bg_tss = 'hcc_sorted_chr.bed'
-    #P300 DATA????
-    bg_p300 = 'strict_enhancers.bed'
-    process_background(bg_genome, bg_tss, DHS_file, bg_p300, final_tfbs_file)
+
+    #process_background(bg_genome, tss_no_dhs, DHS_file, enhancers, final_tfbs_file, output_folder)
     print('Finished processing background')
+    final_background = './'+  output_folder + '/background_data/final_bg.bed'
     
-    ap_enhancers = 'strict_enhancers.bed'
-    process_ap(ap_enhancers, ap_path)
+    #sense_file, antisense_file = process_ap(enhancers_saf, ap_path, output_folder)
     print('Finished processing active/poised')
     
-    genome_saf = 'windowed.filtered.saf'
-    process_histones(genome_saf, histone_path)
+    #process_histones(genome_saf_format, histone_path, output_folder)
     print('Finished processing histones')
+    all_histone_data = './'+  output_folder + '/histone_data/alltogether_notnormed.txt '
     
-    #Compressing + indexing files for pytorch creation
-    files = ['true_tss.bed', 'final_bg.bed', 'strict_enhancers.bed']
-    files.append(compress_index_histone_file('alltogether_notnormed.txt'))
-    compress_index_files(files)
+    #Compressing + indexing files for tensor creation
+#     files_to_compress = [true_tss, final_background, enhancers]
+#     file_folders = ['./'+output_folder+'/tss_data/', './'+output_folder+'/background_data/', './'+output_folder+'/enhancer_data/', './'+output_folder+'/histone_data/']
+#     files_to_compress.append(remove_header_histone_file(all_histone_data))
+#     compress_index_files(files_to_compress)
+    print('Finished compressing files')
     
-    
-    sense_file = '/home/kims/work/enhancer-prediction-data/ap_data/srr_r1bam-bincounts.txt'
-    antisense_file = '/home/kims/work/enhancer-prediction-data/ap_data/srr_r2bam-bincounts.txt'
+
+
     groseq_positive, groseq_negative = clustering(sense_file, sense_bam_file, antisense_file, antisense_bam_file)
     #make_histone_tensors(groseq_positive, groseq_negative, 3)
+    print('Finished making histone tensors')
     #make_sequence_tensors(groseq_positive, groseq_negative)
-    
+    print('Finished making sequence tensors')
     #make_training_testing_tensors('sevenmark_train_dataset.pt', 'sequence_train_dataset.pt', 50)
-    
+    print('Finished making tensors for training')
     
 
     

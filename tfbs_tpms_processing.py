@@ -1,21 +1,16 @@
 from pybedtools import BedTool
+import os
 
-# TFBs = []
-# set_genome = 'hg38'
 
-# TFBs.append('/home/kims/work/enhancer-prediction-data/tfbs/nanog/optimal-idr-peaks-nanog.bed')
-# TFBs.append('/home/kims/work/enhancer-prediction-data/tfbs/oct4/IDR_final_optimal.narrowPeak')
-
-# DHS = 'h1-dnase-seq-peaks.bed'
-
-#CHANGE P300 DATA
-# p300 = 'potential-enhancers.bed'
-# slopped_tss = 'true_tss.bed'
-# TPMs = []
-# TPMs.append(DHS)
-# TPMs.append(p300)
-
-def process_tfbs(slopped_tss, TFBs):
+"""
+Creating TFBS file by getting rid of TFBS that are not distal to tss
+Merge TFBS and save as final_tfbs.bed
+"""
+def process_tfbs(slopped_tss, TFBs, output_folder):
+    tfbs_out_folder = './' + output_folder + '/tfbs_data/'
+    if not os.path.exists(tfbs_out_folder):
+        os.mkdir(tfbs_out_folder)
+        
     tss = BedTool(slopped_tss)
     tfbs_sub_tss = []
     #Getting rid of TFBS that aren't distal to tss
@@ -31,9 +26,17 @@ def process_tfbs(slopped_tss, TFBs):
     for i in range(1, len(TFBs)):
         final_tfbs = final_tfbs.cat(TFBs[i])
     final_tfbs = final_tfbs.sort()
-    final_tfbs.saveas('final_tfbs.bed')
+    final_tfbs.saveas(tfbs_out_folder + 'final_tfbs.bed')
 
-def process_tpms(slopped_tss, TPMs, final_tfbs):
+"""
+Creating TPMs file by getting rid of TPMs that are not distal to tss
+Merge TPMs and save as final_tpms.bed
+"""
+def process_tpms(slopped_tss, TPMs, final_tfbs, output_folder):
+    tpms_out_folder = './' + output_folder + '/tpms_data/'
+    if not os.path.exists(tpms_out_folder):
+        os.mkdir(tpms_out_folder)
+        
     tpms_sub_tss = []
     #Getting rid of TFBS that aren't distal to tss
     #tss file is slopped so range of each interval is 2kb, making sure anything that is 
@@ -52,4 +55,4 @@ def process_tpms(slopped_tss, TPMs, final_tfbs):
         
     #Sorting the features
     final_tpms = final_tpms.sort()
-    final_tpms.saveas('final_tpms.bed')
+    final_tpms.saveas(tpms_out_folder + 'final_tpms.bed')

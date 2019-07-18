@@ -1,4 +1,4 @@
 #!/bin/bash
 
-bgzip $1
+bgzip -c $1 > $2
 tabix -p bed $2

@@ -1,35 +1,53 @@
 #Data for Genome Processing (Making 100 kb windowed bed + saf + 2kb windowed)
 genome: hg38
-window_width: 100
-background_window_width: 2000
+window_resolution: 100
+number_of_windows: 20
 valid_chromosomes: ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 
           'chrX', 'chr8', 'chr9', 'chr11', 'chr10', 'chr12', 'chr13',
           'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr20', 'chr19',
           'chrY', 'chr22', 'chr21', 'chrM']
-          
-#Path to DHS file
-DHS_file: 'h1-dnase-seq-peaks.bed'
 
 #Path to tss file for clustering
-tss_file: 'human_gene_TSS.tsv'
+tss_file: './inputs/human_gene_TSS.tsv'
+distal_bp_distance : 1000
+
+#Path to DHS file
+DHS_file: './inputs/h1-dnase-seq-peaks.bed'
 
 #Path to p300 file
-p300_file: 'h1-p300-narrowpeaks.bed'
+p300_file: './inputs/h1-p300-narrowpeaks.bed'
 
-#Data for enhancer file creation 
-distal_bp_distance : 1000
-tss_for_enhancer : 'human_tss.bed' #BED file of human TSS to isolate those DHS p300 binding sites that are distal to the TSS. 
-
+# Transcription factor binding site files
 TFBS:
  - '/home/kims/work/enhancer-prediction-data/tfbs/nanog/optimal-idr-peaks-nanog.bed'
  - '/home/kims/work/enhancer-prediction-data/tfbs/oct4/IDR_final_optimal.narrowPeak'
 
-#Data for AP file creation
+# True positive marker files (TFBS also added as TPMs after their file creation)
+TPMs:
+ - './inputs/h1-p300-narrowpeaks.bed'
+ - './inputs/h1-dnase-seq-peaks.bed'
+
+# Path for active poised folder that has bam files with sense and antisense data
+# Should be of format:
+# ap_data/
+#     sense_file.bam
+#     antisense_file.bam
 active_poised_folder : '/home/kims/work/pipeline_testing/ap_data/'
 
-#Data for histone file creation
+# Path for histone folder that has bam files with sense and antisense data
+# Should be of format:
+# histones/
+#     histone1/
+#         histone1_chipseqassay_rep1.bam
+#         histone1_chipseqassay_rep2.bam
+#     histone2/
+#         histone2_chipseqassay_rep1.bam
+#         histone2_chipseqassay_rep2.bam
+          
+#Path to histone folder that has each reps of the chip-seq assay for each histone mark in their own folder
 histone_folder : '/home/kims/work/pipeline_testing/histones/'
 
-#Data to make pytorch files
+#Path to data with the sense and antisense bam file
+#ASK ABOUT THIS
 sense_bam_file : '/home/kims/work/pipeline_testing/srr1745515.bam'
 antisense_bam_file : '/home/kims/work/pipeline_testing/srr1745516.bam'

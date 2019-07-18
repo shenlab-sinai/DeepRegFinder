@@ -20,10 +20,6 @@ from torchsummary import summary
 import subprocess
 from pybedtools import BedTool
 
-# sense_file = '/home/kims/work/enhancer-prediction-data/GRO-seq/strict_no_overlap_srr15assigns.txt'
-# sense_bam_file = 'srr1745515.bam'
-# antisense_file = '/home/kims/work/enhancer-prediction-data/GRO-seq/strict_no_overlap_srr16assigns.txt'
-# antisense_bam_file = 'srr1745516.bam'
 
 """
 Read GRO-seq reads aligned to an enhancer list, normalize the reads to RPKM values and log transform them, use K-means to cluster the log RPKM values into active and poised classes. This procedure is done for sense and antisense reads separately. An enhancer is classified as active or poised only when both sense and antisense derived class labels agree.
