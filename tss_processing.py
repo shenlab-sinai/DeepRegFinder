@@ -3,6 +3,7 @@ import numpy as np
 import subprocess
 from pybedtools import BedTool
 import os
+from genome_processing import bed_to_saf
 
 '''
 Cluster a gene's TSSs and return the cluster medians
@@ -48,7 +49,7 @@ Sorts and formats these clustered TSSs into BED format and saves as hcc_sorted_c
 Finds the intersection of the TSS with DHS and saves it as true_tss.bed
 Slops the TSS file by distal_num, and saves as true_slopped_tss.bed
 '''
-def process_tss(tss_file, dhs_file, set_genome, distal_num, output_folder):
+def process_tss(tss_file, set_genome, enhancer_distal_num, distal_num, output_folder):
     tss_out_folder = './' + output_folder + '/tss_data/'
     if not os.path.exists(tss_out_folder):
         os.mkdir(tss_out_folder)
@@ -62,15 +63,16 @@ def process_tss(tss_file, dhs_file, set_genome, distal_num, output_folder):
   
     clustered_coding_tss.to_csv(tss_out_folder + 'clustered_TSS.tsv', sep="\t", index=None)
     
-    subprocess.call(['./format_tss.sh', tss_out_folder + 'clustered_TSS.tsv', tss_out_folder])
+    valids_file = './' + output_folder + '/genome_data/valids.txt'
+    subprocess.call(['./format_tss.sh', tss_out_folder + 'clustered_TSS.tsv', tss_out_folder, valids_file])
     
-    tss_no_dhs_intersect = BedTool(tss_out_folder + 'tss_no_dhs_intersect.bed')
-    dhs = BedTool(dhs_file)
-    true_tss = tss_no_dhs_intersect.intersect(dhs)
-    true_tss.saveas(tss_out_folder + 'true_tss.bed')
-    slopped_tss = true_tss.slop(b=distal_num, genome=set_genome)
-    slopped_tss.saveas(tss_out_folder + 'true_slopped_tss.bed')
+    #bed_to_saf(tss_out_folder + 'true_tss_filtered.bed', tss_out_folder + 'true_tss_filtered.saf')
     
-    slopped_tss_no_dhs = tss_no_dhs_intersect.slop(b=distal_num, genome=set_genome)
-    slopped_tss_no_dhs.saveas(tss_out_folder + 'tss_no_dhs_intersect_slopped.bed')
+    true_tss = BedTool(tss_out_folder + 'true_tss_filtered.bed')
+    slopped_tss = true_tss.slop(b=enhancer_distal_num, genome=set_genome)
+    slopped_tss.saveas(tss_out_folder + 'true_enhancer_slopped_tss.bed')
+    
+    slopped_tss_no_dhs = true_tss.slop(b=distal_num, genome=set_genome)
+    slopped_tss_no_dhs.saveas(tss_out_folder + 'true_slopped_tss.bed')
+    bed_to_saf(tss_out_folder + 'true_slopped_tss.bed', tss_out_folder + 'true_slopped_tss.saf')
     

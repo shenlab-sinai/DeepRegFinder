@@ -1,20 +1,26 @@
-#Data for Genome Processing (Making 100 kb windowed bed + saf + 2kb windowed)
+# Data for Genome Processing (Making 100 kb windowed bed + saf + 2kb windowed)
 genome: hg38
-window_resolution: 100
+genome_fasta_file: '/home/kims/work/enhancer-prediction-data/hg38.fa'
+window_width: 100
 number_of_windows: 20
 valid_chromosomes: ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 
           'chrX', 'chr8', 'chr9', 'chr11', 'chr10', 'chr12', 'chr13',
           'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr20', 'chr19',
           'chrY', 'chr22', 'chr21', 'chrM']
 
-#Path to tss file for clustering
+# Path to tss file for clustering
 tss_file: './inputs/human_gene_TSS.tsv'
 distal_bp_distance : 1000
 
-#Path to DHS file
+#Enhancer data
+enhancer_distal_bp_distance: 3000
+gene_bodies: './inputs/gene_bodies_filtered.sorted.chr.bed'
+H3K4me3_file: './inputs/ENCFF277AOQ.bed'
+
+# Path to DHS file
 DHS_file: './inputs/h1-dnase-seq-peaks.bed'
 
-#Path to p300 file
+# Path to p300 file
 p300_file: './inputs/h1-p300-narrowpeaks.bed'
 
 # Transcription factor binding site files
@@ -22,15 +28,10 @@ TFBS:
  - '/home/kims/work/enhancer-prediction-data/tfbs/nanog/optimal-idr-peaks-nanog.bed'
  - '/home/kims/work/enhancer-prediction-data/tfbs/oct4/IDR_final_optimal.narrowPeak'
 
-# True positive marker files (TFBS also added as TPMs after their file creation)
-TPMs:
- - './inputs/h1-p300-narrowpeaks.bed'
- - './inputs/h1-dnase-seq-peaks.bed'
-
-
-#Path to data with the sense and antisense bam file
+# Path to data with the sense and antisense bam file
 sense_bam_file : '/home/kims/work/pipeline_testing/ap_data/srr1745515.bam'
 antisense_bam_file : '/home/kims/work/pipeline_testing/ap_data/srr1745516.bam'
+groseq_log_transformation: True #Whether you want to log transform the reads
 
 # Path for histone folder that has bam files with sense and antisense data
 # Should be of format:
@@ -42,8 +43,12 @@ antisense_bam_file : '/home/kims/work/pipeline_testing/ap_data/srr1745516.bam'
 #         histone2_chipseqassay_rep1.bam
 #         histone2_chipseqassay_rep2.bam
 # Note: histone files must be of format xxx_repN.bam where N represents the rep number
-          
-#Path to histone folder that has each reps of the chip-seq assay for each histone mark in their own folder
 histone_folder : '/home/kims/work/pipeline_testing/histones/'
+nb_mark: 3 #number of histone marks
+histone_log_transformation: True #Whether you want to log transform the reads
+
+
+# Width of sequence window for sequence pipeline
+sequence_window_width: 300
 
 

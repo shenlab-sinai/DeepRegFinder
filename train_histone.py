@@ -30,9 +30,16 @@ def rpkm_normalize_rnaseq_reads(total_reads, feature_reads, feature_length):
 
 def active_poised_clustering(enhancer_rnaseq_file, sense, seed=12345):
     ap_df = pd.read_table(enhancer_rnaseq_file, skiprows = 1)
+
+    
     ap_df['Chr'] = ap_df.Chr.astype('category')
-    total_reads = ap_df[sense].sum()
-    ap_df['rpkm'] = rpkm_normalize_rnaseq_reads(total_reads, ap_df[sense], ap_df['Length'])
+    #total_reads = ap_df[sense].sum()
+    reads = ap_df.iloc[:, -1]
+    float_reads = pd.to_numeric(reads, downcast='float')
+    total_reads = float_reads.sum()
+   
+    #ap_df['rpkm'] = rpkm_normalize_rnaseq_reads(total_reads, ap_df[sense], ap_df['Length'])
+    ap_df['rpkm'] = rpkm_normalize_rnaseq_reads(total_reads, float_reads, ap_df['Length'])
     ap_df['logrpkm'] = np.log(ap_df['rpkm'] + 1)
     assert(not ap_df.isnull().values.any())
     clusters = KMeans(n_clusters=2, random_state=seed).fit(
@@ -44,9 +51,20 @@ def clustering(sense_file, sense_bam_file, antisense_file, antisense_bam_file):
     antisense_labels, antisense_centers = active_poised_clustering(antisense_file, antisense_bam_file)
     groseq_positive = np.logical_and(sense_labels, np.logical_not(antisense_labels))
     groseq_negative = np.logical_and(np.logical_not(sense_labels), antisense_labels)
-    return groseq_positive, groseq_negative
+    groseq_tss = np.logical_or(sense_labels, antisense_labels)
+    
+    return groseq_positive, groseq_negative, groseq_tss
 
-def build_training_tensors(featurefile, rpkmsfile, isEnhancer, groseq_positive, groseq_negative, nb_mark=7):
+def tss_clustering(sense_file, sense_bam_file, antisense_file, antisense_bam_file):
+    sense_labels, sense_centers = active_poised_clustering(sense_file, sense_bam_file)
+    antisense_labels, antisense_centers = active_poised_clustering(antisense_file, antisense_bam_file)
+    groseq_tss = np.logical_or(sense_labels, antisense_labels)
+    
+    return groseq_tss
+
+
+
+def build_training_tensors(featurefile, rpkmsfile, isEnhancer, groseq_positive, groseq_negative, window_width, number_of_windows, nb_mark=7):
     """Build a pytorch tensor at designated regions for training
     Args:
         featurefile (str): file for regions.
@@ -64,23 +82,32 @@ def build_training_tensors(featurefile, rpkmsfile, isEnhancer, groseq_positive, 
         # Get up and down 2Kb of region centers.
         chrom, start, end = feat[0], int(feat[1]), int(feat[2])
         center = int((start + end)/2)
-        center_start = int(math.ceil(center/100.0))*100
-        rows = list(rpkms.fetch(chrom, center_start - 1000, center_start + 1000, 
+        
+        center_start = int(math.ceil(center/float(window_width)))*window_width
+        halfway = (window_width * number_of_windows)/2
+        
+        if (center_start - halfway < 0):
+            continue
+        
+        rows = list(rpkms.fetch(chrom, center_start - halfway, center_start + halfway, 
                                 parser=pysam.asTuple()))
-        assert(len(rows) == 20)
-        # Assemble RPKMs for different histone marks.
+        
+        if (len(rows)!=number_of_windows):
+            continue
+        
+        #assert(len(rows) == number_of_windows)
+        
+
         forward_tmp = []
         for row in rows:
             e = [ float(item.strip()) for item in row[3:3+nb_mark]]
-#             e = [float(row[3].strip()), float(row[4].strip()), float(row[5].strip()), float(row[6].strip()), 
-#                  float(row[7].strip()), float(row[8].strip()), float(row[9].strip())]
             forward_tmp.append(e)
         forward_data = np.array(forward_tmp).T
         elist.append(forward_data)
     out = np.stack(elist)
     return torch.from_numpy(out)
 
-def build_background_data(bgfile, rpkmsfile, trimmed_bg_file = None):
+def build_background_data(bgfile, rpkmsfile, background_save_folder, trimmed_bg_file = None):
     """
     Helper to create background dataset
     """
@@ -119,20 +146,13 @@ def build_background_data(bgfile, rpkmsfile, trimmed_bg_file = None):
     
     out = np.stack([x['data'] for x in elist])
     print("Writing BED file of background sites used in used_bg.bed")
-    with open("used_bg.bed", "w+") as bed:
+    with open(background_save_folder + "used_bg.bed", "w+") as bed:
         for x in elist:
             c, s, e = x['location'][0], x['location'][1], x['location'][2]
             bed.write(c + "\t" + s + "\t" + e + "\n")
     print("Wrote succesfully")
     return torch.from_numpy(out)
 
-def gen_pos_lab(gp, gn):
-    if gp:
-        return 1
-    elif gn:
-        return 0
-    else:
-        return -1
     
 def get_statistics(data):
     mean, std = 0., 0.
@@ -170,35 +190,68 @@ class NormDataset(Dataset):
             sample = torch.div(sample.sub(self.mean), self.std)
         return sample, label
 
-def make_histone_tensors(groseq_positive, groseq_negative, nb_mark):
-    enhancer_tensor = build_training_tensors('strict_enhancers.bed.gz', 'alltogether_notnormed_noheader.txt.gz', True, groseq_positive, groseq_negative, nb_mark)
+def gen_pos_lab(gp, gn):
+    if gp:
+        return 1
+    elif gn:
+        return 0
+    else:
+        return -1
+
+"""
+poised enhancer: 0
+active enhancer: 1
+poised tss: 2
+active tss: 3
+background: 4
+
+"""
+def make_histone_tensors(groseq_positive, groseq_negative, groseq_tss, nb_mark, enhancer, tss, background, histone, window_width, number_of_windows, tensor_output_folder, output_folder):
+        
+    enhancer_tensor = build_training_tensors(enhancer, histone, True, groseq_positive, groseq_negative, window_width, number_of_windows, nb_mark)
     print("Made enhancer histone tensor")
     
-    print(enhancer_tensor.shape)
     
-    tss_tensor = build_training_tensors('true_tss.bed.gz', 'alltogether_notnormed_noheader.txt.gz', False, groseq_positive, groseq_negative, nb_mark)
-    print(tss_tensor.shape)
+    tss_tensor = build_training_tensors(tss, histone, False, groseq_positive, groseq_negative, window_width, number_of_windows, nb_mark)
     print("Made tss histone tensor")
-      
-#     bg_tensor = build_background_data('/home/kims/work/enhancer-prediction-data/final_bg.bed.gz',
-#                                  '/home/kims/work/enhancer-prediction-data/alltogether_notnormed_noheader.txt.gz')
     
-#     used_bg = BedTool('used_bg.bed')
-#     used_bg_sorted = used_bg.sort()
-#     used_bg_sorted.saveas('used_bg.sorted.bed')
-#     subprocess.call(['./index_file.sh', 'used_bg.sorted.bed', 'used_bg.sorted.bed.gz'])
- 
-    bg_tensor = build_training_tensors('used_bg.sorted.bed.gz', 'alltogether_notnormed_noheader.txt.gz', False, groseq_positive, groseq_negative,nb_mark)
+    background_save_folder = output_folder + '/background_data/'
+    
+    #This takes so long
+    bg_tensor = build_background_data(background, histone, background_save_folder)
+    
+#  CHANGE NAME FROM TEMP
+    used_bg = BedTool(background_save_folder + 'used_bg.bed')
+    used_bg_sorted = used_bg.sort()
+    used_bg_sorted.saveas(background_save_folder + 'used_bg_sorted.bed')
+    subprocess.call(['./index_file.sh', background_save_folder + 'used_bg_sorted.bed', background_save_folder + 'used_bg_sorted.bed.gz'])
+    
+    bg_tensor = build_training_tensors(background_save_folder + 'used_bg_sorted.bed.gz', histone, False, groseq_positive, groseq_negative, window_width, number_of_windows, nb_mark)
     print("Made background histone tensor")
-    print(bg_tensor.shape)
     
-    pos_labels = [ gen_pos_lab(gp, gn) for gp, gn in zip(groseq_positive, groseq_negative)]
+    pos_labels = [gen_pos_lab(gp, gn) for gp, gn in zip(groseq_positive, groseq_negative)]
     pos_labels = np.array(pos_labels)
     pos_labels = pos_labels[pos_labels != -1]
+    num_active_enhancer = np.sum(pos_labels)
+    num_poised_enhancer = len(pos_labels) - np.sum(pos_labels)
     pos_labels = torch.from_numpy(pos_labels).long()
     
-    tss_labels = torch.full((len(tss_tensor),), 2).long()
-    bg_labels = torch.full((len(bg_tensor),), 3).long()
+    
+    tss_labels = np.ones(len(tss_tensor)) * 2
+    tss_labels[groseq_tss] = 3
+    num_active_tss = np.sum(tss_labels == 3)
+    num_poised_tss = len(tss_labels) - num_active_tss
+    tss_labels = torch.from_numpy(tss_labels).long()
+    
+    bg_labels = torch.full((len(bg_tensor),), 4).long()
+    
+    histone_class_weights = [num_poised_enhancer, num_active_enhancer, num_poised_tss, num_active_tss, len(bg_labels)]
+    histone_class_weights = histone_class_weights / np.sum(histone_class_weights)
+    
+    seq_class_weights = [num_poised_enhancer + num_active_enhancer, num_poised_tss + num_active_tss, len(bg_labels)]
+    seq_class_weights = seq_class_weights / np.sum(seq_class_weights)
+    np.savetxt(tensor_output_folder + 'histone_class_weights.txt', histone_class_weights)
+    np.savetxt(tensor_output_folder + 'seq_class_weights.txt', seq_class_weights)
     
     posDataset = torch.utils.data.TensorDataset(enhancer_tensor.float(), pos_labels)
     tssDataset = torch.utils.data.TensorDataset(tss_tensor.float(), tss_labels)
@@ -208,5 +261,5 @@ def make_histone_tensors(groseq_positive, groseq_negative, nb_mark):
     mean, std = get_statistics(data)
     
     final_training_dataset = NormDataset(data, mean=mean, std=std, norm=True, nb_mark=nb_mark)
-    torch.save(final_training_dataset, "sevenmark_train_dataset.pt")
+    torch.save(final_training_dataset, tensor_output_folder + "histone_train_dataset.pt")
 

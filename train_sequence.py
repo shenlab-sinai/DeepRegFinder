@@ -19,7 +19,7 @@ import pycm
 from re import sub
 from torchsummary import summary
 
-def build_training_tensors(featurefile, seqfile, groseq_positive, groseq_negative, isEnhancer=False):
+def build_training_tensors(featurefile, seqfile, groseq_positive, groseq_negative, sequence_window_width, isEnhancer=False):
     encoder = {
         'A' : [1, 0, 0, 0],
         'C' : [0, 1, 0, 0], 
@@ -37,7 +37,8 @@ def build_training_tensors(featurefile, seqfile, groseq_positive, groseq_negativ
         chrom, start, end = feat[0], int(feat[1]), int(feat[2])
         center = int((start+end) /2)
         center_start = int(math.ceil(center / 100.0)) * 100
-        s = seqs.fetch(chrom, center_start-150, center_start+150)
+        half = sequence_window_width / 2
+        s = seqs.fetch(chrom, center_start-half, center_start+half)
         s = sub('[a-z]', 'N', s)
         encoded_seq = np.array([encoder[base] for base in s])
         finished_sequences.append(encoded_seq)
@@ -52,22 +53,22 @@ def build_pos_labels(file, groseq_positive, groseq_negative):
             l.append(0)
     return torch.from_numpy(np.array(l)).long()
 
-def make_sequence_tensors(groseq_positive, groseq_negative):
-    enhancer_sequence_tensor = build_training_tensors('strict_enhancers.bed.gz','hg38.fa', groseq_positive, groseq_negative, isEnhancer=True)
-    print(enhancer_sequence_tensor.shape)
+    
+def make_sequence_tensors(groseq_positive, groseq_negative, enhancer, tss, background, histone, genome_fasta_file, sequence_window_width, output_folder):
+    
+    enhancer_sequence_tensor = build_training_tensors(enhancer, genome_fasta_file, groseq_positive, groseq_negative, sequence_window_width, isEnhancer=True)
     print('Made enhancer sequence dataset')
     
-    tss_sequence_tensor = build_training_tensors('true_tss.bed.gz','hg38.fa', groseq_positive, groseq_negative)
-    print(tss_sequence_tensor.shape)
+    tss_sequence_tensor = build_training_tensors(tss, genome_fasta_file, groseq_positive, groseq_negative, sequence_window_width)
     print('Made tss sequence dataset')
     
-    bg_sequence_tensor = build_training_tensors('used_bg.sorted.bed.gz','hg38.fa', groseq_positive, groseq_negative)
-    print(bg_sequence_tensor.shape)
+    bg_sequence_tensor = build_training_tensors(background, genome_fasta_file, groseq_positive, groseq_negative, sequence_window_width)
     print('Made background sequence dataset')
     
-    pos_labels = build_pos_labels('strict_enhancers.bed.gz', groseq_positive, groseq_negative)
+    pos_labels = build_pos_labels(enhancer, groseq_positive, groseq_negative)
     
-    tss_labels, bg_labels = torch.full((8015,), 1).long(), torch.full((32000,), 2).long()
+    tss_labels = torch.full((len(tss_sequence_tensor),), 1).long()
+    bg_labels = torch.full((len(bg_sequence_tensor),), 2).long()
     
     posDataset = torch.utils.data.TensorDataset(enhancer_sequence_tensor.float(), pos_labels)
     tssDataset = torch.utils.data.TensorDataset(tss_sequence_tensor.float(), tss_labels)
@@ -75,4 +76,4 @@ def make_sequence_tensors(groseq_positive, groseq_negative):
     
     sequence_training_dataset = torch.utils.data.ConcatDataset((posDataset, tssDataset, bgDataset))
     
-    torch.save(sequence_training_dataset, "sequence_train_dataset.pt" )
+    torch.save(sequence_training_dataset, output_folder + "sequence_train_dataset.pt" )

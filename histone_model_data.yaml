@@ -1,0 +1,11 @@
+histone_train_loader: '/home/kims/work/pipeline_testing/out/tensor_data/histone_train_dataloader.pt'
+histone_eval_loader: '/home/kims/work/pipeline_testing/out/tensor_data/histone_eval_dataloader.pt'
+class_weights: '/home/kims/work/pipeline_testing/out/tensor_data/histone_class_weights'
+
+num_classes: 5
+num_marks: 3
+
+num_epochs: 2
+
+
+
