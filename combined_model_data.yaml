@@ -1,0 +1,26 @@
+histone_train_loader: '/home/kims/work/pipeline_testing/out/tensor_data/histone_train_dataloader.pt'
+histone_eval_loader: '/home/kims/work/pipeline_testing/out/tensor_data/histone_eval_dataloader.pt'
+seq_train_loader: '/home/kims/work/pipeline_testing/out/tensor_data/sequence_train_dataloader.pt'
+seq_eval_loader: '/home/kims/work/pipeline_testing/out/tensor_data/sequence_eval_dataloader.pt'
+
+#Use histone class weights for this net
+class_weights: '/home/kims/work/pipeline_testing/out/tensor_data/histone_class_weights'
+
+#Model parameters saved after running histone_net and sequence_net
+histone_state_dict: '/home/kims/work/pipeline_testing/mods/best-mAP-model.pt'
+sequence_state_dict: '/home/kims/work/pipeline_testing/seq_out/best-mAP-seq-model.pt'
+
+num_classes: 5
+num_marks: 3 #Number of histone marks
+
+best_mAP_filename: 'best-combined-mAP-model.pt' #Filename that best mAP data saved as
+
+
+continue_training: False #If you want to continue training from a previous point, set this to True
+prev_best_mAP_file: '/home/kims/work/pipeline_testing/comb_out/best-combined-mAP-model.pt' #Name of state_dict from previous training
+
+
+fig_name: 'combined_confusion_matrix.png' #Name of confusion matrix output
+fig_data: 'combined_confusion_matrix_data.txt' #Name of confusion matrix data output
+
+

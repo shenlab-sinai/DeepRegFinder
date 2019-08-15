@@ -293,6 +293,55 @@ class STN(nn.Module):
 
         return torch.log(o), (theta, transformed, histone_forward)
 
+class Combined_ConvNet(nn.Module):
+    '''Histone-Sequence combined model
+    '''
+    def __init__(self, histone_model, sequence_model, 
+                 fc_size=(400, 400), nb_cls=5):
+        '''
+        Args:
+            histone_model (model): pretrained histone mark model.
+            sequence_model (model): pretrained DNA sequence model.
+            fc_size ([tuple]): size of the two FC layers.
+        '''
+        super(Combined_ConvNet, self).__init__()
+        self.histone_model = histone_model
+        self.sequence_model = sequence_model
+        self.fc1_layer = nn.Sequential(
+            nn.Linear(384, fc_size[0]),
+            nn.BatchNorm1d(fc_size[0]),
+            nn.LeakyReLU()
+        )
+        self.fc2_layer = nn.Sequential(
+            nn.Linear(fc_size[0], fc_size[1]),
+            nn.BatchNorm1d(fc_size[1]),
+            nn.LeakyReLU()
+        )
+        self.final_layer = nn.Sequential(
+            nn.Linear(fc_size[1], nb_cls),
+            #nn.Linear(384, 4),
+            nn.LogSoftmax(dim=1)        
+        )
+        
+    def forward(self, histone_forward, histone_reverse, 
+                sequence_forward, sequence_reverse, 
+                sequence_complement, sequence_complement_reverse):
+        '''Forward propagation using 2 histone inputs and 
+        4 sequence inputs
+        '''
+        hfo = torch.squeeze(self.histone_model(histone_forward))
+        sfo = torch.squeeze(self.sequence_model(sequence_forward))
+        hro = torch.squeeze(self.histone_model(histone_reverse))
+        sro = torch.squeeze(self.sequence_model(sequence_reverse))
+        scf = torch.squeeze(self.sequence_model(sequence_complement))
+        scr = torch.squeeze(self.sequence_model(sequence_complement_reverse))
+        out = torch.cat((hfo, hro, sfo, sro, scf, scr), dim=1)
+        out = out.view(out.shape[0], -1) # flatten for FC layer
+        out = self.fc1_layer(out)
+        out = self.fc2_layer(out)
+        out = self.final_layer(out)
+        return out
+
 def get_last_pooling_layer(model):
     return nn.Sequential(*list(model.children())[:-1], 
                          *list(model.children())[-1][:-2])

@@ -22,7 +22,7 @@ import time
 First argument: input .yaml file 
 Second argument: name for output folder where files stored
 
-Outputs:
+Outputs used for training pipeline can be found in tensor_data folder
 """
 def main():
     """
@@ -126,7 +126,6 @@ def main():
 
     #Compressing + indexing files for tensor creation
     files_to_compress = [unslopped_tss, final_background, enhancers]
-    file_folders = ['./'+output_folder+'/tss_data/', './'+output_folder+'/background_data/', './'+output_folder+'/enhancer_data/', './'+output_folder+'/histone_data/']
     files_to_compress.append(remove_header_histone_file(all_histone_data))
     compress_index_files(files_to_compress)
     print('Finished compressing files')

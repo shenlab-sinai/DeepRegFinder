@@ -111,7 +111,7 @@ def plot_confusion_matrix(cm, norm, n_classes=4):
     if n_classes ==3 :
         classes = ['enhancer', 'tss', 'background']
     else:
-        classes = ['poised', 'active', 'tss', 'background']
+        classes = ['enhancer poised', 'enhancer active', 'tss poised', 'tss active', 'background']
     cmap = plt.cm.Blues
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.colorbar()
@@ -119,7 +119,7 @@ def plot_confusion_matrix(cm, norm, n_classes=4):
     if n_classes == 3:
         ticks = np.arange(3)
     else:
-        ticks = np.arange(4)
+        ticks = np.arange(n_classes)
     plt.xticks(ticks, classes, rotation=45)
     plt.yticks(ticks, classes)
     fmt = '.2f' if norm else 'd'
