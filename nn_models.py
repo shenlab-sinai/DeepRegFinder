@@ -100,7 +100,7 @@ class SeqNet(nn.Module):
 
 
 class ConvNet(nn.Module):
-    def __init__(self, marks=7, nb_cls=5):
+    def __init__(self, marks=3, nb_cls=5):
         super(ConvNet, self).__init__()
         self.layer_one = nn.Sequential(
             nn.Conv1d(marks, 32, 3, padding=1), #in channels, out channels, kernel size

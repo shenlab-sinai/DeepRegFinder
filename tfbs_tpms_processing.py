@@ -1,5 +1,6 @@
 from pybedtools import BedTool
 import os
+import subprocess
 
 
 """
@@ -54,5 +55,8 @@ def process_tpms(slopped_tss, TPMs, final_tfbs, output_folder):
         final_tpms = final_tpms.cat(TPMs[i])
         
     #Sorting the features
+    file = tpms_out_folder + 'final_tpms.bed'
+    file_compress_name = file + '.gz'
     final_tpms = final_tpms.sort()
-    final_tpms.saveas(tpms_out_folder + 'final_tpms.bed')
+    final_tpms.saveas(file)
+    subprocess.call(['./index_file.sh', file, file_compress_name])

@@ -4,7 +4,7 @@ import numpy as np
 from torchvision import transforms, utils
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
-from helper_funcs import plot_confusion_matrix
+from net_functions import *
 import pycm
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import confusion_matrix, average_precision_score
@@ -63,7 +63,6 @@ new_smodel = get_last_pooling_layer(smodel).to(device)
 classify = Combined_ConvNet(new_hmodel, new_smodel, fc_size=(400, 100), nb_cls = num_classes).to(device)
 criterion = nn.NLLLoss(weight=class_weights).to(device)
 
-from training import main_train_loop, validation_loop
 
 start_epoch = 0
 nb_epoch = dataMap['num_epochs']

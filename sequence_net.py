@@ -4,7 +4,7 @@ import numpy as np
 from torchvision import transforms, utils
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
-from helper_funcs import *
+from net_functions import *
 import pycm
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import confusion_matrix, average_precision_score
@@ -46,7 +46,6 @@ def init_weights(m):
         if m.bias.dim() >= 2:
             nn.init.kaiming_uniform_(m.bias.data, nonlinearity='leaky_relu', a=.01)
 
-from training import main_train_loop, validation_loop
 classify = SeqNet().float().to(device)
 #CLASS_WEIGHTS = torch.from_numpy(np.array([23.39, 26.67, 5.42, 1.36])).float()
 criterion = nn.NLLLoss(weight=class_weights).to(device)
