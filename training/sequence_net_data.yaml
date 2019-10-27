@@ -1,0 +1,17 @@
+seq_train_loader: '/home/kims/work/pipeline_testing/out/tensor_data/sequence_train_dataloader.pt'
+seq_eval_loader: '/home/kims/work/pipeline_testing/out/tensor_data/sequence_eval_dataloader.pt'
+class_weights: '/home/kims/work/pipeline_testing/out/tensor_data/seq_class_weights.txt'
+
+data_augment: True
+best_mAP_filename: 'best-mAP-seq-model.pt' #Name of file that the best mAP model is saved to
+
+num_epochs: 2 #Number of epochs to train for
+
+continue_training: False #If you want to continue training from a previous point, set this to True
+prev_best_mAP_file: '/home/kims/work/pipeline_testing/seq_out/best-mAP-seq-model.pt' #Name of state_dict from previous training
+
+fig_name: 'sequence_confusion_matrix.png' #Name of confusion matrix output
+fig_data: 'sequence_confusion_matrix_data.txt' #Name of confusion matrix data output
+
+
+

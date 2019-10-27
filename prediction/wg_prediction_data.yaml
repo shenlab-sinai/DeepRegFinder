@@ -1,0 +1,26 @@
+whole_genome_histone_data: '/home/kims/work/pipeline_testing/out/histone_data/alltogether_notnormed_noheader.txt.gz'
+
+num_marks: 3 #Number of histone marks in data
+
+histone_train_loader: '/home/kims/work/pipeline_testing/out/tensor_data/histone_train_dataloader.pt'
+
+slopped_tss: '/home/kims/work/pipeline_testing/out/tss_data/true_tss_filtered.bed.gz'
+
+# True positive marker files 
+TPMs:
+ - './inputs/h1-p300-narrowpeaks.bed'
+ - './inputs/h1-dnase-seq-peaks.bed'
+ 
+
+TFBS: '/home/kims/work/pipeline_testing/out/tfbs_data/final_tfbs.bed' #Transcription factor binding site file
+
+#model_file: '/home/kims/work/ml_enhancer_classification/models/nn_models.py' #File where you have the model that you want to run prediction with
+model_file: nn_models.py 
+
+model_name: 'ConvNet' #Name of the model that you want to do prediction with 
+
+model_state_dict: '/home/kims/work/pipeline_testing/mods/best-mAP-model.pt' #State dict for the net for running prediction
+
+
+
+
