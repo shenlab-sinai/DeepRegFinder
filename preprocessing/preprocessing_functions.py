@@ -572,8 +572,7 @@ def make_histone_tensors(groseq_positive, groseq_negative, groseq_tss, nb_mark, 
     background_save_folder = output_folder + '/background_data/'
     
     #This takes so long
-    #HELLO
-    #bg_tensor = build_background_data(background, histone, background_save_folder)
+    bg_tensor = build_background_data(background, histone, background_save_folder)
     
 
     used_bg = BedTool(background_save_folder + 'used_bg.bed')

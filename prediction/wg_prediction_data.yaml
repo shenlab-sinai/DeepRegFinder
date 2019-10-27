@@ -8,8 +8,8 @@ slopped_tss: '/home/kims/work/pipeline_testing/out/tss_data/true_tss_filtered.be
 
 # True positive marker files 
 TPMs:
- - './inputs/h1-p300-narrowpeaks.bed'
- - './inputs/h1-dnase-seq-peaks.bed'
+ - '/home/kims/work/pipeline_testing/inputs/h1-p300-narrowpeaks.bed'
+ - '/home/kims/work/pipeline_testing/inputs/h1-dnase-seq-peaks.bed'
  
 
 TFBS: '/home/kims/work/pipeline_testing/out/tfbs_data/final_tfbs.bed' #Transcription factor binding site file

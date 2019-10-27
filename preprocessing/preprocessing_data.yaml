@@ -9,19 +9,19 @@ valid_chromosomes: ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7',
           'chrY', 'chr22', 'chr21', 'chrM']
 
 # Path to tss file for clustering
-tss_file: './inputs/human_gene_TSS.tsv'
+tss_file: '/home/kims/work/pipeline_testing/inputs/human_gene_TSS.tsv'
 distal_bp_distance : 1000
 
 #Enhancer data
 enhancer_distal_bp_distance: 3000
-gene_bodies: './inputs/gene_bodies_filtered.sorted.chr.bed'
-H3K4me3_file: './inputs/ENCFF277AOQ.bed'
+gene_bodies: '/home/kims/work/pipeline_testing/inputs/gene_bodies_filtered.sorted.chr.bed'
+H3K4me3_file: '/home/kims/work/pipeline_testing/inputs/ENCFF277AOQ.bed'
 
 # Path to DHS file
-DHS_file: './inputs/h1-dnase-seq-peaks.bed'
+DHS_file: '/home/kims/work/pipeline_testing/inputs/h1-dnase-seq-peaks.bed'
 
 # Path to p300 file
-p300_file: './inputs/h1-p300-narrowpeaks.bed'
+p300_file: '/home/kims/work/pipeline_testing/inputs/h1-p300-narrowpeaks.bed'
 
 # Transcription factor binding site files
 TFBS:

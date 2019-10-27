@@ -62,6 +62,7 @@ Files necessary:
 -wg_prediction.py
 -wg_prediction_data.yaml
 -wg_prediction_functions.py
+-nn_models
 -index_file.sh
 
 

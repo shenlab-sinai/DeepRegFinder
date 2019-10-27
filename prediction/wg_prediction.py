@@ -101,7 +101,7 @@ class WholeGenomeDataset(Dataset):
 wgd = WholeGenomeDataset(genome_tsv=whole_genome, mean=bin_means, std=bin_stds, norm=True)
 loader = DataLoader(wgd, batch_size=500, shuffle=False, num_workers=0, drop_last=False)
 
-#torch.save(loader, output_folder + '/wg_loader.pt')
+torch.save(loader, output_folder + '/wg_loader.pt')
 #loader = torch.load(output_folder + '/wg_loader.pt')
 
 model_file = __import__(dataMap['model_file'].replace('.py', ''))
@@ -179,14 +179,14 @@ else:
     enhancer_chr_list = poised_chr_list
     enhancer_start_list = poised_start_list
 
-#time_begin = time()
+time_begin = time()
 counter = 0
 for i in range(len(enhancer_chr_list)):
     chrom = enhancer_chr_list[i]
     start = enhancer_start_list[i]
     counter += v.validate(chrom, start)
     
-# print("Time elapsed: "time() - time_begin)
+print("Time elapsed: "time() - time_begin)
 # print(counter)
 
 #Calculating number of correctly predicted enhancers over number of total enhancers
