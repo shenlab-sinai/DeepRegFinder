@@ -1,169 +1,165 @@
-from pybedtools import BedTool
+from pybedtools import BedTool, Interval
+from pybedtools.featurefuncs import midpoint
+from sklearn.model_selection import train_test_split
+from sklearn.cluster import KMeans
+import torch
+from torch.utils.data import Dataset, TensorDataset
 import os
 import glob
 import subprocess
 import sys
 import pandas as pd
 import numpy as np
-import torch
-import numpy as np
-import torch
-import numpy as np
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
 import pysam
 import time
 import math
-import pandas as pd
-from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
-import random
-import torch.nn as nn
-from sklearn.metrics import confusion_matrix, precision_recall_curve, average_precision_score, roc_curve, auc
-from sklearn.preprocessing import label_binarize
-from scipy import interp
-from scipy.stats.mstats import zscore
-import itertools as itls
-import pycm
-from re import sub
-from torchsummary import summary
-import torch.nn as nn
-from scipy import interp 
 
-"""
-Compresses all files using bgzip, then indexes them with tabix
-"""
-def compress_index_files(files):
-    for file in files:
-        file_compress_name = file + '.gz'
-        subprocess.call(['./index_file.sh', file, file_compress_name])
 
-"""
-Function to remove header from histone file
-Returns the name
-"""
-def remove_header_histone_file(file):
-    file_no_head_name = file.split('.txt')[0] + '_noheader.txt' 
-    cmnd = "sed '1d' " + file + " > " + file_no_head_name
-    os.system(cmnd)
-    return file_no_head_name
+__all__ = ['process_groseq', 'process_background', 'process_enhancers', 
+           'process_genome', 'process_histones', 'process_tfbs', 'process_tss', 
+           'positive_negative_clustering', 'make_tensor_dataset', 
+           'ChannNormDataset']
 
 
 """
 Converts the input bed file to a saf file
 Saves the saf file as name passed in as saf_file
 """
-def bed_to_saf(bed_file, saf_file):
+def _bed_to_saf(bed_file, saf_file):
     with open(bed_file, 'r') as bed:
         with open(saf_file, 'w+') as saf:
             saf.write("GeneID\tChr\tStart\tEnd\tStrand\n" )
-            strand = "+"
             for i, line in enumerate(bed):
                 words = line.split(sep = '\t')
                 chrom = words[0]
-                start = str(int(words[1]))
+                start = str(int(words[1]) + 1)  # SAF is 1-based.
                 end = str(int(words[2]))
                 gene_id = '.'.join((chrom, start, end))
-                saf.write(gene_id + "\t" + chrom + "\t" + start + "\t" + end + "\t" + strand + "\n")
+                saf.write("\t".join((gene_id, chrom, start, end, ".")) + "\n")
+
+"""
+Reads a txt file produced by featureCounts and log-transform the count column.
+"""
+def _logtrans_featcnt_file(file):
+    out_name = os.path.splitext(file)[0] + '_logtrans.txt'
+    df = pd.read_csv(file, comment="#", delim_whitespace=True)
+    # The last column contains the read counts.
+    df.iloc[:, -1] = df.iloc[:, -1].apply(lambda x: np.log2(x + 1))
+    df.to_csv(out_name, sep="\t", index=False)
+    # subprocess.call(['./log_transform.sh', file, out_name])
+
+
 """
 Runs feature counts on all bam files in the active_poised folder
 Returns names of the files created after running featureCounts
 """
-def process_ap(saf_file, sense_bam_file, antisense_bam_file, output_folder, groseq_logtrans):
-    #extract name + change it 
-    ap_out_folder = './' + output_folder + '/active_poised_data/'
-    if not os.path.exists(ap_out_folder):
-        os.mkdir(ap_out_folder)
+def process_groseq(saf_file, sense_bam_file, antisense_bam_file, output_folder, 
+                   groseq_logtrans=False, cpu_threads=1):
+    # import pdb; pdb.set_trace()
+    groseq_out_folder = os.path.join(output_folder, 'groseq_data')
+    if not os.path.exists(groseq_out_folder):
+        os.mkdir(groseq_out_folder)
     
-    #histone = histone_folder.split('/')[split_num]
-    file_name = saf_file.split('/')[-1].split('.')[0]
-    files = [sense_bam_file, antisense_bam_file]
-    file_type = [file_name + '_sense', file_name + '_antisense']
+    # Output file names.
+    file_base = os.path.basename(saf_file)
+    file_base = os.path.splitext(file_base)[0]
+    bam_files = [sense_bam_file, antisense_bam_file]
+    strands = ['_sense', '_antisense']
     
     out_files = []
-    for counter, rep in enumerate(files):
-        out_name = ap_out_folder + file_type[counter] + "_bam-bincounts.txt"
-        subprocess.call(["featureCounts", rep, "-a", saf_file, "-O", "-F", "SAF", "--fracOverlap", "0.5", "-f", "-o",  out_name]) 
+    for bam, strand in zip(bam_files, strands):
+        out_name = os.path.join(
+            groseq_out_folder, file_base + strand + "_bam-bincounts.txt")
+        print('Running featureCounts: {} -> {}'.format(bam, saf_file), end='...')
+        sys.stdout.flush()
+        subprocess.call(
+            ["featureCounts", bam, "-a", saf_file, "-O", "-F", "SAF", 
+             "--fracOverlap", "0.5", "-f", "-o", out_name, 
+             "-T", str(cpu_threads)], 
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print('Done')
+        sys.stdout.flush()
         out_files.append(out_name)
     
     if groseq_logtrans:
         for file in out_files:
-            out_name = file.split('.txt')[0] + '_logtrans.txt'
-            subprocess.call(['./log_transform.sh', file, out_name])
+            _logtrans_featcnt_file(file)
+
 
 """
 Removes tss, DHS, enhancer, and TFBS from genome to get possible background sites
 Saves this as final_bg.bed
 """
-def process_background(genome_windowed, tss, DHS, enhancers, tfbs, output_folder):
-    bg_out_folder = './' + output_folder + '/background_data/'
+def process_background(genome_windowed_bed, valids, tss_bed, DHS_bed, 
+                       p300_bed, tfbs_bed, enhancer_distal_num, genome, 
+                       output_folder):
+
+    bg_out_folder = os.path.join(output_folder, 'background_data')
     if not os.path.exists(bg_out_folder):
         os.mkdir(bg_out_folder)
-        
-    genome_windowed = BedTool(genome_windowed)
-    tss = BedTool(tss)
-    DHS = BedTool(DHS)
-    enhancers = BedTool(enhancers)
-    tfbs = BedTool(tfbs)
-    
-    #Subtracting off TSS
+
+    # Read and filter genome windows and other lists.
+    genome_windowed = BedTool(genome_windowed_bed).filter(
+        lambda p: p.chrom in valids)
+    tss = BedTool(tss_bed).filter(lambda p: p.chrom in valids)
+    DHS = BedTool(DHS_bed).filter(lambda p: p.chrom in valids)
+    p300 = BedTool(p300_bed).filter(lambda p: p.chrom in valids)
+    tfbs = BedTool(tfbs_bed).filter(lambda p: p.chrom in valids)
+
+    # Expand all the regulatory elements by a large #bps to make 
+    # the background windows "purer". 
+    tss = tss.slop(b=enhancer_distal_num, genome=genome)
+    DHS = DHS.slop(b=enhancer_distal_num, genome=genome)
+    p300 = p300.slop(b=enhancer_distal_num, genome=genome)
+    tfbs = tfbs.slop(b=enhancer_distal_num, genome=genome)
+
+    # Subtracting TSS, DHS, p300 and TFBS.
     bins_minus_T = genome_windowed.subtract(tss, A=True)
-
-    #Subtracting DHS
     bins_minus_TD = bins_minus_T.subtract(DHS, A=True)
-
-    #Subtracting p300 sites
-    bins_minus_TDE = bins_minus_TD.subtract(enhancers, A=True)
-
-    #Subtracting TFBS
+    bins_minus_TDE = bins_minus_TD.subtract(p300, A=True)
     final_bg = bins_minus_TDE.subtract(tfbs, A=True)
-
-    final_bg.saveas(bg_out_folder + 'final_bg.bed')
+    final_bg.saveas(os.path.join(bg_out_folder, 'final_bg.bed'))
+    # import pdb; pdb.set_trace()
 
 """
-Selects sites that are p300 co-activator binding sites 
-Next uses a BED file of human TSS to isolate those p300 binding sites that are distal to the TSS. 
-
-Also creates a saf file from this bed file of enhancers
+Define enhancers based on p300 peaks that are intergenic 
+(excluding genebodies) and away from TSS and H3K4me3 peaks 
+by a certain number of bps (default is 3Kb).
+Also creates a SAF file from this BED file of enhancers.
 """
-def process_enhancers(p300, tss, gene_bodies, H3K4me3, enhancer_distal_num, genome, output_folder):
-    enhancer_out_folder = './' + output_folder + '/enhancer_data/'
+def process_enhancers(p300_file, dhs_file, slopped_tss_file, gene_bodies_file, 
+                      H3K4me3_file, distal_num, genome, valids, output_folder):
+
+    enhancer_out_folder = os.path.join(output_folder, 'enhancer_data')
     if not os.path.exists(enhancer_out_folder):
         os.mkdir(enhancer_out_folder)
-    
-    #Converting to Bed format
-    p300 = BedTool(p300)
-    tss = BedTool(tss)
-    gene_bodies = BedTool(gene_bodies)
-    H3K4me3_peaks = BedTool(H3K4me3)
-    
-    H3K4me3_slopped = H3K4me3_peaks.slop(b=enhancer_distal_num, genome=genome)
-    
-    
-    intergenic = p300.subtract(gene_bodies, A = True)
-    tss_distal_sites = intergenic.subtract(tss, A=True)
-    tss_histone_distal_sites = tss_distal_sites.subtract(H3K4me3_slopped, A=True)
 
+    # Read p300 and overlap with DHS.
+    p300 = BedTool(p300_file).filter(lambda p: p.chrom in valids)
+    dhs = BedTool(dhs_file).filter(lambda p: p.chrom in valids)
+    slopped_dhs = dhs.slop(b=distal_num, genome=genome)
+    p300 = p300.intersect(b=slopped_dhs, u=True)
+    # Read all the regions that need to subtract.
+    slopped_tss = BedTool(slopped_tss_file).filter(lambda p: p.chrom in valids)
+    gene_bodies = BedTool(gene_bodies_file).filter(lambda p: p.chrom in valids)
+    H3K4me3_peaks = BedTool(H3K4me3_file).filter(lambda p: p.chrom in valids)
+    H3K4me3_slopped = H3K4me3_peaks.slop(b=distal_num, genome=genome)
+    # Excluding genebodies, TSS and H3K4me3.
+    intergenic = p300.subtract(gene_bodies, A=True)
+    tss_distal_sites = intergenic.subtract(slopped_tss, A=True)
+    tss_histone_distal_sites = tss_distal_sites.subtract(H3K4me3_slopped, A=True)
+    # Sorting and writing to BED and SAF files.
     sorted_sites = tss_histone_distal_sites.sort()
-    sorted_sites.saveas(enhancer_out_folder + 'strict_enhancers.bed')
-    valids_file = './' + output_folder + '/genome_data/valids.txt'
-    
-    
-    cmnd = 'grep -w -f '+ valids_file + ' '+ enhancer_out_folder + 'strict_enhancers.bed' + '>' + enhancer_out_folder + 'strict_enhancers_filtered.bed'
-    os.system(cmnd)
-    
-    bed_to_saf(enhancer_out_folder + 'strict_enhancers_filtered.bed', enhancer_out_folder + 'strict_enhancers_filtered.saf')
-   
-"""
-Windows passsed in genome by window_width, saves it as genome_save_name
-Filters this windowed genome so it only contains chromosomes in valids file
-"""
-#Function to window genome by set width and save it by save name
-def window_sort_genome(genome, window_width, genome_save_name, filtered_save_name, valids_file):
-    genome_windowed = BedTool().window_maker(genome=genome, w=window_width).saveas()
-    genome_windowed.saveas(genome_save_name)
-    cmnd = 'grep -w -f '+ valids_file + ' '+ genome_save_name + '>' + filtered_save_name
-    os.system(cmnd)
+    sorted_sites.saveas(
+        os.path.join(enhancer_out_folder, 'strict_enhancers_filtered.bed'))
+    # Get enhancer modpoints and slop them.
+    slopped_enh = sorted_sites.each(midpoint)
+    slopped_enh = slopped_enh.slop(b=distal_num, genome=genome)
+    slopped_enh.saveas(os.path.join(enhancer_out_folder, 'strict_slopped_enh.bed'))
+    _bed_to_saf(
+        os.path.join(enhancer_out_folder, 'strict_slopped_enh.bed'), 
+        os.path.join(enhancer_out_folder, 'strict_slopped_enh.saf'))
+
     
 """
 Creates windowed.filtered.bed which is the genome windowed by window_width and filtered to only
@@ -172,160 +168,149 @@ Also converts this windowed.filtered.bed into saf format
 Creates bgwindowed.filtered.bed which is genome windowed by bg_window_width and filtered to only
 contain set valid chromosomes
 """
-def process_genome(genome, window_width, number_of_windows, valids, output_folder):
-    gene_out_folder = './' + output_folder + '/genome_data/'
+def process_genome(genome, valids, window_width, number_of_windows, 
+                   output_folder, genome_size_file=None):
+
+    gene_out_folder = os.path.join(output_folder, 'genome_data')
     if not os.path.exists(gene_out_folder):
         os.mkdir(gene_out_folder)
-        
-    bg_window_width = window_width * number_of_windows
 
-    #Creation of text file of valid chromosomes to find in larger genome file
-    valids = np.array(valids)
-    valids_file = gene_out_folder + "valids.txt"
-    with open(valids_file, "w") as f:
-        np.savetxt(f, valids, fmt='%s')
-    
-    window_sort_genome(genome, window_width, gene_out_folder + 'windowed.bed', gene_out_folder + 'windowed.filtered.bed', valids_file)
-    window_sort_genome(genome, bg_window_width, gene_out_folder + 'bgwindowed.bed', gene_out_folder + 'bgwindowed.filtered.bed', valids_file)
-    bed_to_saf(gene_out_folder + 'windowed.filtered.bed', gene_out_folder + 'windowed.filtered.saf')
+    # Function to window genome by set width and save it.
+    def window_genome(window_width, filtered_save_name):
+        if genome_size_file is not None:
+            genome_windowed = BedTool().window_maker(g=genome_size_file, 
+                                                     w=window_width)
+            genome_windowed.saveas(filtered_save_name)
+        else:
+            genome_windowed = BedTool().window_maker(genome=genome, 
+                                                     w=window_width)
+            genome_windowed.filter(lambda p: p.chrom in valids)
+            genome_windowed.saveas(filtered_save_name)
+
+    # Create windowed BED and SAF files.    
+    bg_window_width = window_width*number_of_windows
+    window_genome(
+        window_width, 
+        os.path.join(gene_out_folder, 'windowed.filtered.bed')
+    )
+    window_genome(
+        bg_window_width, 
+        os.path.join(gene_out_folder, 'bgwindowed.filtered.bed')
+    )
+    _bed_to_saf(os.path.join(gene_out_folder, 'windowed.filtered.bed'), 
+                os.path.join(gene_out_folder, 'windowed.filtered.saf'))
+
 
 """
-Runs featureCounts on all reps of a chiq-seq assay for each histone mark specified
-Finds the average of each repetition for each histone mark 
-Stores these averages as columns in alltogether_notnormed.txt
+Runs featureCounts on all reps of chiq-seq samples for each histone mark
+Calculates the average of the reps for each histone mark 
+Stores these averages as columns in the alltogether_notnormed.txt
 """
-def process_histones(genome_saf, histone_path, output_folder, hist_logtrans):
-    histone_out_folder = './' + output_folder + '/histone_data/'
+def process_histones(genome_saf, histone_path, output_folder, 
+                     hist_logtrans=False, cpu_threads=1):
+    # import pdb; pdb.set_trace()
+    histone_out_folder = os.path.join(output_folder, 'histone_data')
     if not os.path.exists(histone_out_folder):
         os.mkdir(histone_out_folder)
-        
     
+    # Looping through every histone folder and running featureCounts on each rep
     out_files = []
-    #Looping through every histone folder and running featureCounts on each rep
-    for histone_folder in glob.glob(histone_path + '/*/'):
-        split_num = -1
-        if histone_folder[-1] == '/':
-            split_num = -2
-        histone = histone_folder.split('/')[split_num]
-        out_path = histone_out_folder + histone
+    for histone in os.listdir(histone_path):
+        histone_folder = os.path.join(histone_path, histone)
+        if not os.path.isdir(histone_folder):
+            continue
+        out_path = os.path.join(histone_out_folder, histone)
         if not os.path.exists(out_path):
             os.mkdir(out_path)
-        
-        for rep in glob.glob(histone_folder + "/*.bam"):
-            rep_name = os.path.basename(rep)
-            rep_num = rep_name.split('rep')[1][0]
-            out_name = out_path + "/r" + rep_num + "-bincounts.txt"
+        # Looping through each rep.
+        for rep in glob.glob(os.path.join(histone_folder, "*.bam")):
+            rep_name = os.path.splitext(os.path.basename(rep))[0]
+            rep_num = rep_name.split('rep')[1]
+            out_name = os.path.join(out_path, "r" + rep_num + "-bincounts.txt")
             out_files.append(out_name)
-            subprocess.call(["featureCounts", rep, "-a", genome_saf, "-O", "-F", "SAF","--fracOverlap",  "0.5", "-o", out_name]) 
-            
+            print('Running featureCounts: {} -> {}'.format(rep, genome_saf), end='...')
+            sys.stdout.flush()
+            subprocess.call(
+                ["featureCounts", rep, "-a", genome_saf, "-O", "-F", "SAF",
+                 "--fracOverlap", "0.5", "-o", out_name, 
+                 "-T", str(cpu_threads)], 
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print('Done')
+            sys.stdout.flush()
     
-    #Log transforming data if necessary
+    # Log transforming data if necessary
     if hist_logtrans:
         for file in out_files:
-            out_name = file.split('.txt')[0] + '_logtrans.txt'
-            subprocess.call(['./log_transform.sh', file, out_name])
+            _logtrans_featcnt_file(file)
     
-    
-    histone_cols = {}
-    dict_of_counts = {}
-    same_data = {}
-    same_data['Chr'] = []
-    same_data['Start'] = []
-    same_data['End'] = []
-    
-    #Looping through files made from featureCounts and storing
-    #results in a dataframe
-    counter = 0
-    for histone_folder in glob.glob(histone_out_folder + '/*/'):
-        split_num = -1
-        if histone_folder[-1] == '/':
-            split_num = -2
-        histone = histone_folder.split('/')[split_num]
-        out_path = histone_out_folder + histone
-        histone_cols[histone] = []
-        
-        ending = "/*bincounts.txt"
+    # Looping through files produced by featureCounts and merging
+    # them into a dataframe.
+    hist_cnt_dict = {}
+    bin_cols = None
+    for histone in os.listdir(histone_out_folder):
+        histone_folder = os.path.join(histone_out_folder, histone)
+        if not os.path.isdir(histone_folder):
+            continue
         if hist_logtrans:
-            ending = "/*bincounts_logtrans.txt"
-          
-        
-        for rep in glob.glob(histone_folder + ending):
-            rep_name = os.path.basename(rep)
-            rep_num = rep_name.split('r')[1][0]
-            col_name = histone + '-rep' + rep_num
-            histone_cols[histone].append(col_name)
-
-            dict_of_counts[col_name] = []
-            #print(rep_name)
-            with open(rep, "r") as infile:
-                next(infile)
-                next(infile)
-                for lines in infile:
-                    lines = lines.strip().split("\t")
-                    dict_of_counts[col_name].append(float(lines[6]))
-                    
-                    if counter == 0:
-                        same_data['Chr'].append(lines[1])
-                        same_data['Start'].append(int(lines[2]))
-                        same_data['End'].append(int(lines[3]))
-            counter += 1
-      
-    dataframe = pd.DataFrame(dict_of_counts)
-    dataframe = pd.DataFrame(same_data)
-    dataframe = dataframe.assign(**dict_of_counts)
-    
-    #Taking the average of the counts for each histone mark
-    avg_cols = {}
-    for key in histone_cols:
-        avg_col_name = key + '_avg'
-        avg_cols[avg_col_name] = dataframe[histone_cols[key]].mean(axis=1)
-
-    dataframe = dataframe.assign(**avg_cols)
-    
-    kept_cols = ['Chr', 'Start', 'End']
-    avgs_cols_list = list(avg_cols.keys())
-    new_cols = kept_cols + avgs_cols_list
-    new_dataframe = dataframe[new_cols]
+            pattern = "r*-bincounts_logtrans.txt"
+        else:
+            pattern = "r*-bincounts.txt"
+        rep_cnt_list = []
+        for rep in glob.glob(os.path.join(histone_folder, pattern)):
+            df = pd.read_csv(rep, comment="#", delim_whitespace=True)
+            rep_cnt_list.append(df.iloc[:, -1])
+            if bin_cols is None:
+                bin_cols = df[['Chr', 'Start', 'End']]
+                # Comment the header line so that it can be 
+                # processed as BED by tabix.
+                bin_cols = bin_cols.rename(columns={'Chr': '#Chr'})
+        hist_df = pd.concat(rep_cnt_list, axis=1)
+        avg_cnt = hist_df.mean(axis=1)
+        hist_cnt_dict[histone + '_avg'] = avg_cnt
+    hist_cnt_merged = pd.DataFrame(hist_cnt_dict)
+    hist_cnt_df = pd.concat([bin_cols, hist_cnt_merged], axis=1)
     if hist_logtrans:
-        new_dataframe.to_csv(histone_out_folder + "alltogether_notnormed_logtrans.txt", sep = '\t', index = False)
+        df_out_path = os.path.join(histone_out_folder, 
+                                   "alltogether_notnormed_logtrans.txt")
     else:
-        new_dataframe.to_csv(histone_out_folder + "alltogether_notnormed.txt", sep = '\t', index = False)
+        df_out_path = os.path.join(histone_out_folder, 
+                                   "alltogether_notnormed.txt")
+    hist_cnt_df.to_csv(df_out_path, sep="\t", index=False)
+
 
 """
 Creating TFBS file by getting rid of TFBS that are not distal to tss
 Merge TFBS and save as final_tfbs.bed
 """
-def process_tfbs(slopped_tss, TFBs, output_folder):
-    tfbs_out_folder = './' + output_folder + '/tfbs_data/'
+def process_tfbs(slopped_tss, TFBS, valids, output_folder):
+
+    tfbs_out_folder = os.path.join(output_folder, 'tfbs_data')
     if not os.path.exists(tfbs_out_folder):
         os.mkdir(tfbs_out_folder)
-        
-    tss = BedTool(slopped_tss)
-    tfbs_sub_tss = []
-    #Getting rid of TFBS that aren't distal to tss
-    #tss file is slopped so range of each interval is 2kb, making sure anything that is 
-    #overlapping is at least 1kb away
-    for tfbs in TFBs:
-        tfbs = BedTool(tfbs)
-        tfbs_sub_tss.append(tfbs.subtract(tss, A=True))
-    
-    final_tfbs = tfbs_sub_tss[0]
 
-    #Merging the features using cat
-    for i in range(1, len(TFBs)):
-        final_tfbs = final_tfbs.cat(TFBs[i])
-    final_tfbs = final_tfbs.sort()
-    final_tfbs.saveas(tfbs_out_folder + 'final_tfbs.bed')
+    # Slopped TSS list.
+    tss = BedTool(slopped_tss)    
+    # Getting rid of TFBS that aren't distal to tss
+    # tss file is slopped so range of each interval is 2kb, making sure 
+    # anything that is overlapping is at least 1kb away.
+    for i, bed in enumerate(TFBS):
+        tfbs = BedTool(bed).filter(lambda p: p.chrom in valids)
+        tfbs = tfbs.subtract(tss, A=True)
+        if i == 0:
+            final_tfbs = tfbs
+        else:
+            final_tfbs.cat(tfbs)
+    final_tfbs.sort().saveas(os.path.join(tfbs_out_folder, 'final_tfbs.bed'))
 
 
 '''
 Cluster a gene's TSSs and return the cluster medians
 '''
-def cluster_gene_tss(g, bps_cutoff=500, verbose=0):
+def _cluster_gene_tss(g, bps_cutoff=500, verbose=0):
    
-    geneid = g['Gene stable ID'].iloc[0]
-    chrom = g['Chromosome/scaffold name'].iloc[0]
-    tss = g['Transcription start site (TSS)']
+    geneid = g['geneid'].iloc[0]
+    chrom = g['chrom'].iloc[0]
+    tss = g['tss']
     med_list = []
     clust_list = []
     n_tss = n_clust = 0
@@ -346,93 +331,84 @@ def cluster_gene_tss(g, bps_cutoff=500, verbose=0):
     med_list.append(int(np.median(clust_list)))
     if verbose > 0:
         if n_tss > 0:
-            print("%s: %d TSSs were clustered into %d cluster medians." % 
-                  (geneid, n_tss, n_clust))
+            print("%s: %d TSSs were clustered into %d "
+                  "cluster medians." % (geneid, n_tss, n_clust))
         else:
             print("%s: no clustering was done." % (geneid))
-    df = pd.DataFrame({'Gene stable ID': geneid, 
-                       'Chromosome/scaffold name': chrom, 
-                       'Transcription start site (TSS)': med_list})
-    return df[['Gene stable ID', 
-               'Chromosome/scaffold name', 
-               'Transcription start site (TSS)']]
+    df = pd.DataFrame({'geneid': geneid, 
+                       'chrom': chrom, 
+                       'tss': med_list})
+    return df
+
+
 '''
 Cluster a gene's TSSs 
-Sorts and formats these clustered TSSs into BED format and saves as hcc_sorted_chr.bed
-Finds the intersection of the TSS with DHS and saves it as true_tss.bed
-Slops the TSS file by distal_num, and saves as true_slopped_tss.bed
+Sorts and formats these clustered TSSs into BED format and saves as clustered_TSS.tsv
+Slops the TSSs by enhancer_distal_num and distal_num and saves as BEDs.
 '''
-def process_tss(tss_file, set_genome, enhancer_distal_num, distal_num, output_folder):
-    tss_out_folder = './' + output_folder + '/tss_data/'
+def process_tss(tss_file, dhs_file, set_genome, valids, enhancer_distal_num, 
+                distal_num, output_folder):
+
+    tss_out_folder = os.path.join(output_folder, 'tss_data')
     if not os.path.exists(tss_out_folder):
         os.mkdir(tss_out_folder)
-        
-    human_tss_df = pd.read_csv(tss_file, delimiter="\t")
+
+    # Merge neighboring TSSs and take the midpoints.
+    tss = BedTool(tss_file).filter(lambda p: p.chrom in valids)
+    tss_merged = tss.sort().merge(d=500).each(midpoint)
+    enhancer_slopped_tss = tss_merged.slop(b=enhancer_distal_num, 
+                                           genome=set_genome)
+    tss_merged = enhancer_slopped_tss.saveas(
+        os.path.join(tss_out_folder, 'enhancer_slopped_tss.bed'))
+
+    # Overlap with DHS to find the true TSSs.
+    # import pdb; pdb.set_trace()
+    tss_merged = tss_merged.each(midpoint)  # unslop.
+    dhs = BedTool(dhs_file).filter(lambda p: p.chrom in valids)
+    slopped_dhs = dhs.slop(b=distal_num, genome=set_genome)
+    true_tss = tss_merged.intersect(b=slopped_dhs, u=True)
+    true_tss.saveas(os.path.join(tss_out_folder, 'true_tss_filtered.bed'))
+    slopped_tss = true_tss.slop(b=distal_num, genome=set_genome)
+    slopped_tss.saveas(os.path.join(tss_out_folder, 'true_slopped_tss.bed'))
+    _bed_to_saf(os.path.join(tss_out_folder, 'true_slopped_tss.bed'), 
+               os.path.join(tss_out_folder, 'true_slopped_tss.saf'))
     
-    #Get rid of this line later
-    coding_tss_df = human_tss_df.loc[human_tss_df['Gene type'] == 'protein_coding']
-    coding_tss_grouped = human_tss_df.groupby('Gene stable ID')
-    clustered_coding_tss = coding_tss_grouped.apply(cluster_gene_tss, bps_cutoff=500, verbose=0)
-  
-    clustered_coding_tss.to_csv(tss_out_folder + 'clustered_TSS.tsv', sep="\t", index=None)
-    
-    valids_file = './' + output_folder + '/genome_data/valids.txt'
-    subprocess.call(['./format_tss.sh', tss_out_folder + 'clustered_TSS.tsv', tss_out_folder, valids_file])
-    
-    #bed_to_saf(tss_out_folder + 'true_tss_filtered.bed', tss_out_folder + 'true_tss_filtered.saf')
-    
-    true_tss = BedTool(tss_out_folder + 'true_tss_filtered.bed')
-    slopped_tss = true_tss.slop(b=enhancer_distal_num, genome=set_genome)
-    slopped_tss.saveas(tss_out_folder + 'true_enhancer_slopped_tss.bed')
-    
-    slopped_tss_no_dhs = true_tss.slop(b=distal_num, genome=set_genome)
-    slopped_tss_no_dhs.saveas(tss_out_folder + 'true_slopped_tss.bed')
-    bed_to_saf(tss_out_folder + 'true_slopped_tss.bed', tss_out_folder + 'true_slopped_tss.saf')
         
 """
-Read GRO-seq reads aligned to an enhancer list, normalize the reads to RPKM values and log transform them, use K-means to cluster the log RPKM values into active and poised classes. This procedure is done for sense and antisense reads separately. An enhancer is classified as active or poised only when both sense and antisense derived class labels agree.
+Read GRO-seq counts (maybe log-transformed) for an enhancer/tss list, 
+use K-means to cluster the values into active and poised classes. This 
+procedure is done for sense and antisense counts separately. An enhancer 
+is classified as active or poised only when both sense and antisense derived 
+class labels agree.
 """
-def rpkm_normalize_rnaseq_reads(total_reads, feature_reads, feature_length):
-    rpkm = ((10**9) * feature_reads) / (feature_length * total_reads).astype(float)
-    return rpkm 
+def positive_negative_clustering(sense_file, antisense_file):
+    '''
+    Two-way clustering using GRO-seq counts.
+    '''
+    def binary_clustering(groseq_cnt_file, seed=12345):
+        df = pd.read_csv(groseq_cnt_file, delim_whitespace=True)
+        cnts = df.iloc[:, [-1]].astype('float')
+        clustering = KMeans(n_clusters=2, random_state=seed).fit(cnts)
+        # Make sure label 0 is always the cluster with lower count.
+        # Flip the labels if C0's center > C1's center.
+        c0c, c1c = clustering.cluster_centers_[:, 0]
+        if c0c > c1c:
+            return 1 - clustering.labels_
+        return clustering.labels_
 
-def active_poised_clustering(enhancer_rnaseq_file, sense, seed=12345):
-    ap_df = pd.read_table(enhancer_rnaseq_file, skiprows = 1)
-
-    
-    ap_df['Chr'] = ap_df.Chr.astype('category')
-    #total_reads = ap_df[sense].sum()
-    reads = ap_df.iloc[:, -1]
-    float_reads = pd.to_numeric(reads, downcast='float')
-    total_reads = float_reads.sum()
-   
-    #ap_df['rpkm'] = rpkm_normalize_rnaseq_reads(total_reads, ap_df[sense], ap_df['Length'])
-    ap_df['rpkm'] = rpkm_normalize_rnaseq_reads(total_reads, float_reads, ap_df['Length'])
-    ap_df['logrpkm'] = np.log(ap_df['rpkm'] + 1)
-    assert(not ap_df.isnull().values.any())
-    clusters = KMeans(n_clusters=2, random_state=seed).fit(
-        ap_df['logrpkm'].values.reshape(-1, 1))
-    return clusters.labels_, clusters.cluster_centers_
-
-def clustering(sense_file, sense_bam_file, antisense_file, antisense_bam_file):
-    sense_labels, sense_centers = active_poised_clustering(sense_file, sense_bam_file)
-    antisense_labels, antisense_centers = active_poised_clustering(antisense_file, antisense_bam_file)
-    groseq_positive = np.logical_and(sense_labels, np.logical_not(antisense_labels))
-    groseq_negative = np.logical_and(np.logical_not(sense_labels), antisense_labels)
-    groseq_tss = np.logical_or(sense_labels, antisense_labels)
-    
-    return groseq_positive, groseq_negative, groseq_tss
-
-def tss_clustering(sense_file, sense_bam_file, antisense_file, antisense_bam_file):
-    sense_labels, sense_centers = active_poised_clustering(sense_file, sense_bam_file)
-    antisense_labels, antisense_centers = active_poised_clustering(antisense_file, antisense_bam_file)
-    groseq_tss = np.logical_or(sense_labels, antisense_labels)
-    
-    return groseq_tss
+    sense_labels = binary_clustering(sense_file)
+    antisense_labels = binary_clustering(antisense_file)
+    positive_labs = np.logical_and(sense_labels, 
+                                   antisense_labels)
+    negative_labs = np.logical_and(np.logical_not(sense_labels), 
+                                   np.logical_not(antisense_labels))    
+    return positive_labs, negative_labs
 
 
-
-def build_histone_training_tensors(featurefile, rpkmsfile, isEnhancer, groseq_positive, groseq_negative, window_width, number_of_windows, nb_mark=7):
+def build_histone_tensors(region_bed, hist_cnt_file, positives, negatives, 
+                          window_width, number_of_windows, is_bkg=False, 
+                          samples=None, nz_cutoff=5, out_bed=None, 
+                          base_label=0, cpu_threads=1):
     """Build a pytorch tensor at designated regions for training
     Args:
         featurefile (str): file for regions.
@@ -440,117 +416,80 @@ def build_histone_training_tensors(featurefile, rpkmsfile, isEnhancer, groseq_po
         isEnhancer (bool): is enhancer region?
         nb_mark ([int]): number of histone marks. Default is 7.
     """
-    features = list(pysam.TabixFile(featurefile).fetch(parser=pysam.asTuple()))
-    rpkms = pysam.TabixFile(rpkmsfile)
-    elist = []  # list for all regions.
-    for i, feat in enumerate(features):
-        if isEnhancer:  # ignore ambiguous enhancers.
-            if (not groseq_positive[i]) and (not groseq_negative[i]):
+    assert(is_bkg and positives is None and negatives is None or not is_bkg)
+    regions = BedTool(region_bed)
+    if is_bkg:
+        # merge regions to reduce #queries to improve performance.
+        # multiprocessing failed because tabix fetch can't be pickled.
+        regions = regions.merge()  # bkg regions are already sorted.
+    # pandas was much slower than tabix. 
+    hist_cnts = pysam.TabixFile(hist_cnt_file)
+    dlist, rlist, ylist = [], [], []
+    region_size = window_width*number_of_windows
+    for i, r in enumerate(regions):
+        if positives is not None and (not positives[i]) and (not negatives[i]):
+            continue
+        # Once the region passed, it is either positive or negative.
+        label = (base_label if positives is None 
+                 else base_label + int(positives[i]))
+        if not is_bkg:
+            r_midpoint = round(((r.start + r.end)//2)/window_width)*window_width
+            r_start = r_midpoint - region_size//2 + 1
+            r_end = r_midpoint + region_size//2
+            if r_start < 1:
                 continue
-        # Get up and down 2Kb of region centers.
-        chrom, start, end = feat[0], int(feat[1]), int(feat[2])
-        center = int((start + end)/2)
-        
-        center_start = int(math.ceil(center/float(window_width)))*window_width
-        halfway = (window_width * number_of_windows)/2
-        
-        if (center_start - halfway < 0):
-            continue
-        
-        rows = list(rpkms.fetch(chrom, center_start - halfway, center_start + halfway, 
-                                parser=pysam.asTuple()))
-        
-        if (len(rows)!=number_of_windows):
-            continue
-        
-        #assert(len(rows) == number_of_windows)
-        
+        else:
+            r_start = r.start + 1
+            r_end = r.end//region_size*region_size  # remove incomplete region.
+            if r_end - r_start + 1 < region_size:
+                continue
+        rows = np.array(
+            list(hist_cnts.fetch(r.chrom, r_start, r_end, 
+                                 parser=pysam.asTuple()))
+        )
+        if i > 0 and i % 100000 == 0:
+            print('{} regions checked so far'.format(i))
+            sys.stdout.flush()
+        # discard chr, start, end so we just have histone marks (columns 3:10)
+        # take transpose so we have channels x bins (histone marks x bins; 7 x 20)
+        d = rows[:, 3:].astype(float).T
+        if not is_bkg:
+            # if an enhancer or TSS is at the chromosome end, it may have fewer
+            # than number_of_windows bins. Remove them from training.
+            if d.shape[1] % number_of_windows != 0 or \
+                np.count_nonzero(d) < nz_cutoff:
+                continue
+            dlist.append(d)
+            rlist.append((r.chrom, r_start - 1, r_end))
+            ylist.append(label)
+        else:  # split data and merged region into number_of_windows bin regions.
+            # chann x bin (many) -> chann x batch x bin (20)
+            ds = d.reshape((d.shape[0], -1, number_of_windows))
+            # chann x batch x bin (20) -> batch x chann x bin (20)
+            ds = np.transpose(ds, (1, 0, 2))
+            rs = [ (r.chrom, s - 1, s - 1 + region_size) 
+                   for s in range(r_start, r_end, region_size)]
+            for d_, r_ in zip(ds, rs):
+                if np.count_nonzero(d_) >= nz_cutoff:
+                    dlist.append(d_)
+                    rlist.append(r_)
+                    ylist.append(label)
 
-        forward_tmp = []
-        for row in rows:
-            e = [ float(item.strip()) for item in row[3:3+nb_mark]]
-            forward_tmp.append(e)
-        forward_data = np.array(forward_tmp).T
-        elist.append(forward_data)
-    out = np.stack(elist)
-    return torch.from_numpy(out)
+    # Assemble the data and do sampling.
+    hist_t = np.stack(dlist)
+    label_t = np.array(ylist)
+    if samples is not None and samples < len(hist_t):
+        ix = np.sort(np.random.choice(len(hist_t), samples, replace=False))
+        hist_t = hist_t[ix]
+        label_t = label_t[ix]
+        rlist = [ rlist[x] for x in ix]
+    # Output the used regions as BED.
+    if out_bed is not None:
+        used_regs = [ Interval(r[0], r[1], r[2]) for r in rlist]
+        used_bed = BedTool(used_regs)
+        used_bed.saveas(out_bed)
 
-def build_background_data(bgfile, rpkmsfile, background_save_folder, trimmed_bg_file = None):
-    """
-    Helper to create background dataset
-    """
-    if trimmed_bg_file:
-        #we already have the ~32000 sites we want to use
-        return build_histone_training_tensors(trimmed_bg_file, rpkmsfile, isEnhancer=False)
-    bg = list(pysam.TabixFile(bgfile).fetch(parser = pysam.asTuple()))
-    rpkms = pysam.TabixFile(rpkmsfile)
-    elist = []
-    print("Gathering all non-zero potential background sites!")
-    count = 0
-    for i, pb in enumerate(bg):
-        chrom, start, end = pb[0], int(pb[1]), int(pb[2])
-        rows = np.array(list(rpkms.fetch(chrom, start, end, parser=pysam.asTuple())))
-        
-        if rows.shape[0] != 20: 
-            #We will have fewer than 20 bins if we are at a chromosome end; 
-            #we can safely exclude this from our training set
-            continue
-            
-        #discard chr, start, end so we just have histone marks (columns 3:10), and convert to int dtype
-        #take transpose so we have channels x rows (histone marks x bins; 7 x 20)
-        data = rows[:, 3:].astype(float).T
-        
-        #if the sample is not all 0, include it in our list of potential samples
-        if not np.all(np.isclose(data, 0)):  
-            elist.append({'data': data, 'location': (chrom, str(start), str(end))})
-            count += 1
-            
-        if i % 100000 == 0:
-            print(str(i) + " regions checked so far")
-            print("Gathered " + str(count) + " potential regions so far")
-    print("Done gathering potential sites. Selecting 32000 randomly")
-    if len(elist) > 32000:
-        elist = random.sample(elist, 32000)
-    
-    out = np.stack([x['data'] for x in elist])
-    print("Writing BED file of background sites used in used_bg.bed")
-    with open(background_save_folder + "used_bg.bed", "w+") as bed:
-        for x in elist:
-            c, s, e = x['location'][0], x['location'][1], x['location'][2]
-            bed.write(c + "\t" + s + "\t" + e + "\n")
-    print("Wrote succesfully")
-    return torch.from_numpy(out)
-
-    
-def get_statistics(data):
-    mean, std = 0., 0.
-    total_observed = 0.
-    for sample in data:
-        x = sample[0]
-        x_mean = x.mean(1)
-        x_std = x.std(1)
-        current_observations = x.shape[1]
-        old_mean = mean
-        old_std = std
-        old_constant = (total_observed/(total_observed + current_observations))
-        new_constant = (current_observations/(total_observed + current_observations))
-        std_update_term = (total_observed*current_observations) \
-            / (np.power((total_observed + current_observations), 2)) \
-            * np.power(np.subtract(old_mean, x_mean), 2)
-        mean = (old_constant*old_mean) + (new_constant*x_mean)
-        std = np.sqrt((old_constant*np.power(old_std, 2)) + (new_constant*np.power(x_std, 2)) + std_update_term)
-        total_observed += current_observations
-    return mean, std
-
-
-
-def gen_pos_lab(gp, gn):
-    if gp:
-        return 1
-    elif gn:
-        return 0
-    else:
-        return -1
+    return hist_t, label_t
 
 """
 poised enhancer: 0
@@ -558,227 +497,110 @@ active enhancer: 1
 poised tss: 2
 active tss: 3
 background: 4
-
 """
-def make_histone_tensors(groseq_positive, groseq_negative, groseq_tss, nb_mark, enhancer, tss, background, histone, window_width, number_of_windows, tensor_output_folder, output_folder):
-        
-    enhancer_tensor = build_histone_training_tensors(enhancer, histone, True, groseq_positive, groseq_negative, window_width, number_of_windows, nb_mark)
+def make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss, 
+                        enhancer, tss, background, hist_cnt_file, window_width, 
+                        number_of_windows, output_folder, bkg_samples=100000, 
+                        nz_cutoff=5, val_p=0.2, test_p=0.2):
+    tensor_out_folder = os.path.join(output_folder, 'tensor_data')
+    if not os.path.exists(tensor_out_folder):
+        os.mkdir(tensor_out_folder)
+    bg_out_folder = os.path.join(output_folder, 'background_data')
+    if not os.path.exists(bg_out_folder):
+        raise Exception('Subfolder background_data does not exist in', output_folder)
+    
+    # Build tensors for enhancer, TSS and background.
+    enhancer_X, enhancer_y = build_histone_tensors(
+        enhancer, hist_cnt_file, positive_enh, negative_enh, 
+        window_width, number_of_windows, is_bkg=False, 
+        nz_cutoff=nz_cutoff, base_label=0)
     print("Made enhancer histone tensor")
-    
-    
-    tss_tensor = build_histone_training_tensors(tss, histone, False, groseq_positive, groseq_negative, window_width, number_of_windows, nb_mark)
+    tss_X, tss_y = build_histone_tensors(
+        tss, hist_cnt_file, positive_tss, negative_tss, 
+        window_width, number_of_windows, is_bkg=False, 
+        nz_cutoff=nz_cutoff, base_label=2)
     print("Made tss histone tensor")
-    
-    background_save_folder = output_folder + '/background_data/'
-    
-    #This takes so long
-    bg_tensor = build_background_data(background, histone, background_save_folder)
-    
-
-    used_bg = BedTool(background_save_folder + 'used_bg.bed')
-    used_bg_sorted = used_bg.sort()
-    used_bg_sorted.saveas(background_save_folder + 'used_bg_sorted.bed')
-    subprocess.call(['./index_file.sh', background_save_folder + 'used_bg_sorted.bed', background_save_folder + 'used_bg_sorted.bed.gz'])
-    
-    bg_tensor = build_histone_training_tensors(background_save_folder + 'used_bg_sorted.bed.gz', histone, False, groseq_positive, groseq_negative, window_width, number_of_windows, nb_mark)
+    bkg_bed = os.path.join(bg_out_folder, 'used_bg_sorted.bed.gz')
+    bg_X, bg_y = build_histone_tensors(
+        background, hist_cnt_file, None, None, 
+        window_width, number_of_windows, is_bkg=True, 
+        samples=bkg_samples, nz_cutoff=nz_cutoff, 
+        out_bed=bkg_bed, base_label=4)
     print("Made background histone tensor")
     
-    pos_labels = [gen_pos_lab(gp, gn) for gp, gn in zip(groseq_positive, groseq_negative)]
-    pos_labels = np.array(pos_labels)
-    pos_labels = pos_labels[pos_labels != -1]
-    num_active_enhancer = np.sum(pos_labels)
-    num_poised_enhancer = len(pos_labels) - np.sum(pos_labels)
-    pos_labels = torch.from_numpy(pos_labels).long()
-    
-    
-    tss_labels = np.ones(len(tss_tensor)) * 2
-    tss_labels[groseq_tss] = 3
-    num_active_tss = np.sum(tss_labels == 3)
-    num_poised_tss = len(tss_labels) - num_active_tss
-    tss_labels = torch.from_numpy(tss_labels).long()
-    
-    bg_labels = torch.full((len(bg_tensor),), 4).long()
-    
-    histone_class_weights = [num_poised_enhancer, num_active_enhancer, num_poised_tss, num_active_tss, len(bg_labels)]
-    histone_class_weights = histone_class_weights / np.sum(histone_class_weights)
-    
-    seq_class_weights = [num_poised_enhancer + num_active_enhancer, num_poised_tss + num_active_tss, len(bg_labels)]
-    seq_class_weights = seq_class_weights / np.sum(seq_class_weights)
-    np.savetxt(tensor_output_folder + 'histone_class_weights.txt', histone_class_weights)
-    np.savetxt(tensor_output_folder + 'seq_class_weights.txt', seq_class_weights)
-    
-    posDataset = torch.utils.data.TensorDataset(enhancer_tensor.float(), pos_labels)
-    tssDataset = torch.utils.data.TensorDataset(tss_tensor.float(), tss_labels)
-    bgDataset = torch.utils.data.TensorDataset(bg_tensor.float(), bg_labels)
-    
-    data = torch.utils.data.ConcatDataset((posDataset, tssDataset, bgDataset))
-    mean, std = get_statistics(data)
-    
-    final_training_dataset = NormDataset(data, mean=mean, std=std, norm=True, nb_mark=nb_mark)
-    torch.save(final_training_dataset, tensor_output_folder + "histone_train_dataset.pt")
+    # Concat enhancer, tss and bkg and then split into train-val-test.
+    train_X = np.concatenate([enhancer_X, tss_X, bg_X])
+    train_y = np.concatenate([enhancer_y, tss_y, bg_y])
+    val_size = int(len(train_X)*val_p)
+    test_size = int(len(train_X)*test_p)
+    train_X, test_X, train_y, test_y = train_test_split(
+        train_X, train_y, test_size=test_size, stratify=train_y)
+    train_X, val_X, train_y, val_y = train_test_split(
+        train_X, train_y, test_size=val_size, stratify=train_y)
+    train_X_t, train_y_t = torch.from_numpy(train_X).float(), torch.from_numpy(train_y).long()
+    val_X_t, val_y_t = torch.from_numpy(val_X).float(), torch.from_numpy(val_y).long()
+    test_X_t, test_y_t = torch.from_numpy(test_X).float(), torch.from_numpy(test_y).long()
 
-def build_sequence_training_tensors(featurefile, seqfile, groseq_positive, groseq_negative, sequence_window_width, isEnhancer=False):
-    encoder = {
-        'A' : [1, 0, 0, 0],
-        'C' : [0, 1, 0, 0], 
-        'G' : [0, 0, 1, 0],
-        'T' : [0, 0, 0, 1],
-        'N' : [0, 0, 0, 0]
-    }
-    features = list(pysam.TabixFile(featurefile).fetch(parser=pysam.asTuple()))
-    seqs = pysam.FastaFile(seqfile)
-    finished_sequences = []
-    for i, feat in enumerate(features):
-        if isEnhancer:
-            if (not groseq_positive[i]) and (not groseq_negative[i]):
-                continue
-        chrom, start, end = feat[0], int(feat[1]), int(feat[2])
-        center = int((start+end) /2)
-        center_start = int(math.ceil(center / 100.0)) * 100
-        half = sequence_window_width / 2
-        s = seqs.fetch(chrom, center_start-half, center_start+half)
-        s = sub('[a-z]', 'N', s)
-        encoded_seq = np.array([encoder[base] for base in s])
-        finished_sequences.append(encoded_seq)
-    stacked_data = np.stack(finished_sequences)
-    return torch.from_numpy(stacked_data)
+    # Create pytorch datasets.
+    train_dataset = TensorDataset(train_X_t, train_y_t)
+    val_dataset = TensorDataset(val_X_t, val_y_t)
+    test_dataset = TensorDataset(test_X_t, test_y_t)
+    # Normalization by mean and std.
+    chann_mean, chann_std = ChannNormDataset.chann_norm_stats(train_dataset)
+    train_dataset = ChannNormDataset(train_dataset, chann_mean, chann_std)
+    val_dataset = ChannNormDataset(val_dataset, chann_mean, chann_std)
+    test_dataset = ChannNormDataset(test_dataset, chann_mean, chann_std)
 
-def build_pos_labels(file, groseq_positive, groseq_negative):
-    l = []
-    f = list(pysam.TabixFile(file).fetch(parser=pysam.asTuple()))
-    for i, feat in enumerate(f):
-        if groseq_positive[i] or groseq_negative[i]:
-            l.append(0)
-    return torch.from_numpy(np.array(l)).long()
-
-    
-def make_sequence_tensors(groseq_positive, groseq_negative, enhancer, tss, background, histone, genome_fasta_file, sequence_window_width, output_folder):
-    
-    enhancer_sequence_tensor = build_sequence_training_tensors(enhancer, genome_fasta_file, groseq_positive, groseq_negative, sequence_window_width, isEnhancer=True)
-    print('Made enhancer sequence dataset')
-    
-    tss_sequence_tensor = build_sequence_training_tensors(tss, genome_fasta_file, groseq_positive, groseq_negative, sequence_window_width)
-    print('Made tss sequence dataset')
-    
-    bg_sequence_tensor = build_sequence_training_tensors(background, genome_fasta_file, groseq_positive, groseq_negative, sequence_window_width)
-    print('Made background sequence dataset')
-    
-    pos_labels = build_pos_labels(enhancer, groseq_positive, groseq_negative)
-    
-    tss_labels = torch.full((len(tss_sequence_tensor),), 1).long()
-    bg_labels = torch.full((len(bg_sequence_tensor),), 2).long()
-    
-    posDataset = torch.utils.data.TensorDataset(enhancer_sequence_tensor.float(), pos_labels)
-    tssDataset = torch.utils.data.TensorDataset(tss_sequence_tensor.float(), tss_labels)
-    bgDataset = torch.utils.data.TensorDataset(bg_sequence_tensor.float(), bg_labels)
-    
-    sequence_training_dataset = torch.utils.data.ConcatDataset((posDataset, tssDataset, bgDataset))
-    
-    torch.save(sequence_training_dataset, output_folder + "sequence_train_dataset.pt" )
+    torch.save(train_dataset, os.path.join(tensor_out_folder, 'histone_train_dataset.pt'))
+    torch.save(val_dataset, os.path.join(tensor_out_folder, 'histone_val_dataset.pt'))
+    torch.save(test_dataset, os.path.join(tensor_out_folder, 'histone_test_dataset.pt'))
+    # pysam costs 158s to build the bkg tensor.
 
 
-class NormDataset(Dataset):
-    def __init__(self, data, mean, std, norm=True, nb_mark=7):
-        self.data = data
-        self.mean = mean.view(nb_mark, -1)
-        self.std = std.view(nb_mark, -1)
+'''
+A normalized dataset that return bin values with mean subtraction 
+and std division for each histone mark separately.
+'''
+class ChannNormDataset(Dataset):
+    def __init__(self, dataset, mean, std, norm=True):
+        self.dataset = dataset
+        # reshape mean and std to column vectors.
+        self.mean = mean.view(-1, 1)
+        self.std = std.view(-1, 1)
         self.norm = norm
         
     def __len__(self):
-        return len(self.data)
+        return len(self.dataset)
     
     def __getitem__(self, idx):
-        sample, label = self.data[idx]
+        sample, label = self.dataset[idx]
         if self.norm:
             sample = torch.div(sample.sub(self.mean), self.std)
         return sample, label
 
-
-
-
-
-
-
-def check_ordering(hist_dset, seq_dset):
-    '''Make sure the labels of histone mark and sequence 
-    datasets represent the same classes
     '''
-    assert len(hist_dset) == len(seq_dset), "Unordered: Datasets have different lengths!"
-    for hist_sample, seq_sample in zip(hist_dset, seq_dset):
-        hist_l, seq_l = hist_sample[1].item(), seq_sample[1].item()
-        if (hist_l == 0) or (hist_l == 1):
-            assert seq_l == 0, "Unordered: Enhancers don't match"
-        elif (hist_l == 2) or (hist_l == 3):
-            assert seq_l == 1, "Unordered, TSS don't match"
-        elif (hist_l == 4):
-            assert seq_l == 2, "Unordered, BG don't match"
-    return True 
+    Return channel-wise mean and std across all regions and bins for a dataset.
+    '''
+    @staticmethod
+    def chann_norm_stats(dataset):
+        mean, std = 0., 0.
+        total_observed = 0
+        for x, _ in dataset:
+            x_mean = x.mean(1)
+            x_std = x.std(1)
+            current_observations = x.shape[1]
+            old_mean = mean
+            old_std = std
+            old_constant = (total_observed/(total_observed + current_observations))
+            new_constant = (current_observations/(total_observed + current_observations))
+            std_update_term = (total_observed*current_observations) \
+                / (np.power((total_observed + current_observations), 2)) \
+                * np.power(np.subtract(old_mean, x_mean), 2)
+            mean = (old_constant*old_mean) + (new_constant*x_mean)
+            std = np.sqrt((old_constant*np.power(old_std, 2)) + (new_constant*np.power(x_std, 2)) + std_update_term)
+            total_observed += current_observations
+        return mean, std
 
-def make_training_testing_dataloaders(his_dataset, seq_dataset, batch_sz, tensor_out_folder):
-    histone_dataset = torch.load(his_dataset)
-    sequence_dataset = torch.load(seq_dataset)
-    check_ordering(histone_dataset, sequence_dataset)
-    
-    rng = np.random.RandomState(12345)
-    eval_size = .2
-    hist_train_X, hist_eval_X = [], []
-    hist_train_y, hist_eval_y = [], []
-    seq_train_X, seq_eval_X = [], []
-    seq_train_y, seq_eval_y = [], []
-    for hist_sample, seq_sample in zip(histone_dataset, sequence_dataset):
-        hist_d, seq_d = hist_sample[0], seq_sample[0]
-        hist_l, seq_l = hist_sample[1], seq_sample[1]
-        if rng.rand() > eval_size:
-            #if hist_l != 3:
-            hist_train_X.append(hist_d)
-            hist_train_y.append(hist_l)
-            seq_train_X.append(seq_d)
-            seq_train_y.append(seq_l)
-        else:
-            #if hist_l != 3:
-            hist_eval_X.append(hist_d)
-            hist_eval_y.append(hist_l)
-            seq_eval_X.append(seq_d)
-            seq_eval_y.append(seq_l)
-            
-    hist_train_X, hist_train_y = torch.stack(hist_train_X), torch.stack(hist_train_y)
-    hist_eval_X, hist_eval_y = torch.stack(hist_eval_X), torch.stack(hist_eval_y)
-    seq_train_X, seq_train_y = torch.stack(seq_train_X), torch.stack(seq_train_y)
-    seq_eval_X, seq_eval_y = torch.stack(seq_eval_X), torch.stack(seq_eval_y)
-    
-    #Swap last two dimensions for sequence tensors
-    seq_train_X = seq_train_X.permute(0, 2, 1)
-    seq_eval_X = seq_eval_X.permute(0, 2, 1)
-    
-    h_train_loader = DataLoader(
-    torch.utils.data.TensorDataset(hist_train_X, hist_train_y), 
-    batch_size=batch_sz, shuffle=True, num_workers=4) 
-    
-    h_eval_loader = DataLoader(
-    torch.utils.data.TensorDataset(hist_eval_X, hist_eval_y), 
-    batch_size=batch_sz, shuffle=False, num_workers=4)
-    
-    h_train_loader_3cls = DataLoader(
-    torch.utils.data.TensorDataset(hist_train_X, seq_train_y), 
-    batch_size=batch_sz, shuffle=True, num_workers=4)
-    
-    h_eval_loader_3cls = DataLoader(
-    torch.utils.data.TensorDataset(hist_eval_X, seq_eval_y), 
-    batch_size=batch_sz, shuffle=False, num_workers=4)
-    
-    s_train_loader = DataLoader(
-    torch.utils.data.TensorDataset(seq_train_X, seq_train_y), 
-    batch_size=batch_sz, shuffle=True, num_workers=4)
-    
-    s_eval_loader = DataLoader(
-    torch.utils.data.TensorDataset(seq_eval_X, seq_eval_y), 
-    batch_size=batch_sz, shuffle=False, num_workers=4)
-    
-    torch.save(h_train_loader, tensor_out_folder + "histone_train_dataloader.pt")
-    torch.save(h_eval_loader, tensor_out_folder + "histone_eval_dataloader.pt")
-    torch.save(h_train_loader_3cls, tensor_out_folder + "histone_train_dataloader_3cls.pt")
-    torch.save(h_eval_loader_3cls, tensor_out_folder + "histone_eval_dataloader_3cls.pt")
-    torch.save(s_train_loader, tensor_out_folder + "sequence_train_dataloader.pt")
-    torch.save(s_eval_loader, tensor_out_folder + "sequence_eval_dataloader.pt")
-    
+
+  
     
