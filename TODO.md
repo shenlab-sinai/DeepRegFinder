@@ -1,3 +1,4 @@
+### Preprocessing
 - reduce file size by using gzipped bed and saf. NOT DO
 - add #threads for featureCounts. DONE
 - parallelize build_histone_tensors. USED MERGE INSTEAD. DONE

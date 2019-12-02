@@ -1,4 +1,5 @@
-from preprocessing_functions import *
+#!/usr/bin/env python3
+from DeepRegFinder.preprocessing_functions import *
 from pybedtools import BedTool
 import yaml
 import sys
