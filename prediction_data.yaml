@@ -1,4 +1,0 @@
-# True positive marker files (TFBS also added as TPMs after their file creation)
-TPMs:
- - './inputs/h1-p300-narrowpeaks.bed'
- - './inputs/h1-dnase-seq-peaks.bed'
