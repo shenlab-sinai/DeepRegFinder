@@ -551,10 +551,13 @@ def make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss,
     val_dataset = ChannNormDataset(val_dataset, chann_mean, chann_std)
     test_dataset = ChannNormDataset(test_dataset, chann_mean, chann_std)
 
-    torch.save(train_dataset, os.path.join(tensor_out_folder, 'histone_train_dataset.pt'))
-    torch.save(val_dataset, os.path.join(tensor_out_folder, 'histone_val_dataset.pt'))
-    torch.save(test_dataset, os.path.join(tensor_out_folder, 'histone_test_dataset.pt'))
-    # pysam costs 158s to build the bkg tensor.
+    torch.save(
+        {'train': train_dataset, 'val': val_dataset, 'test': test_dataset}, 
+        os.path.join(tensor_out_folder, 'all_datasets.pth.tar')
+    )
+    # torch.save(train_dataset, os.path.join(tensor_out_folder, 'histone_train_dataset.pt'))
+    # torch.save(val_dataset, os.path.join(tensor_out_folder, 'histone_val_dataset.pt'))
+    # torch.save(test_dataset, os.path.join(tensor_out_folder, 'histone_test_dataset.pt'))
 
 
 '''
