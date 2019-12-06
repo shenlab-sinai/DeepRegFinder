@@ -8,3 +8,6 @@
 - require TSS and enhancer to overlap with DHS. DONE
 - sample background using a fixed number instead of ratio. DONE
 - support for 3-way classification without using GRO-seq.
+
+### Training
+- add weight initialization.

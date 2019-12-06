@@ -3,32 +3,20 @@ import pycm
 from torchsummary import summary
 from scipy import interp 
 from sklearn.preprocessing import label_binarize
-from sklearn.metrics import confusion_matrix, precision_recall_curve, average_precision_score, roc_curve, auc
+from sklearn.metrics import (
+    confusion_matrix, precision_recall_curve, 
+    average_precision_score, roc_curve, auc
+)
 import matplotlib.pyplot as plt 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset
 np.seterr(divide='ignore', invalid='ignore')
-from sklearn.preprocessing import label_binarize
 
 """
 Collection of helper functions for validation and accuracy
 """
-class NormDataset(Dataset):
-    def __init__(self, data, mean, std, norm ):
-        self.data = data
-        self.mean = mean.view(7, -1)
-        self.std = std.view(7, -1)
-        self.norm = norm
-    def __len__(self):
-        return len(self.data)
-    def __getitem__(self, idx):
-        sample, label = self.data[idx]
-        if self.norm:
-            sample = torch.div(sample.sub(self.mean), self.std)
-        return sample, label
-
 
 def plot_pr(precision, recall, average_precision):
     """
@@ -102,42 +90,47 @@ def plot_rocs(fpr, tpr, roc_auc):
     plt.legend(loc="lower right")
     plt.show()
 
-def plot_confusion_matrix(cm, norm, n_classes=4):
+
+def plot_confusion_matrix(cm, norm=True, n_classes=5):
+    """Plot confusion matrix
     """
-    Given a scikit confusion matrix, plots it in a graphically understandable manner. Norm is bool to indicate if the CM
-    should be normalized (class-wise) before plotting.
-    """
-    if norm:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    classes=[]
-    if n_classes ==3 :
+    cm_ = cm.copy()
+    if norm:  # normalize each target class.
+        cm = cm.astype('float')/cm.sum(axis=1)[:, np.newaxis]
+    if n_classes == 3 :
         classes = ['enhancer', 'tss', 'background']
+    elif n_classes == 5:
+        classes = ['poised enhancer', 'active enhancer', 
+                   'poised tss', 'active tss', 'background']
     else:
-        classes = ['enhancer poised', 'enhancer active', 'tss poised', 'tss active', 'background']
+        classes = [ str(c + 1) for c in range(n_classes)]
     cmap = plt.cm.Blues
+    plt.figure(figsize=(8, 8))
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.colorbar()
-    ticks = []
-    if n_classes == 3:
-        ticks = np.arange(3)
-    else:
-        ticks = np.arange(n_classes)
+    ticks = np.arange(n_classes)
     plt.xticks(ticks, classes, rotation=45)
     plt.yticks(ticks, classes)
+    plt.ylim([n_classes - .5, -.5])
     fmt = '.2f' if norm else 'd'
     for i, j in itls.product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(j, i, format(cm[i, j], fmt), horizontalalignment='center', color='white' if cm[i,j] > (cm.max()/2.) else 'black')
+        plt.text(j, i, format(cm[i, j], fmt), horizontalalignment='center', 
+                 color='white' if cm[i,j] > (cm.max()/2.) else 'black')
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.rcParams.update({'font.size': 16})
     plt.tight_layout()
-    plt.ylabel('true label')
-    plt.xlabel('predicted label')
+
+    df = pd.DataFrame(cm_, columns=classes, index=classes)
+    return df
 
 
 def get_statistics(binvals, scores, n_classes=4):
     """
-    Given the true labels in binarized form ("binvals") and the model outputs (probability distribution over
-    the classes, "scores") over a dataset, calculates:
-        -FPR, TPR, precision, recall, average precision, and area under the ROC for each class, as well as micro-averaged
-        over the classes
+    Given the true labels in binarized form ("binvals") and the model outputs 
+    (probability distribution over the classes, "scores") over a dataset, calculates:
+        -FPR, TPR, precision, recall, average precision, and area under the 
+         ROC for each class, as well as micro-averaged over the classes
         -Macro averaged TPR, FPR, and roc_auc
     Returns the above as dictionaries for each statistic:
     fpr, tpr, roc_auc, precision, recall, avg_precision 
@@ -241,73 +234,83 @@ def normalize_dat_dict(batch_data, use_sequence, use_histone,
         return dat_dict, label
     return dat_dict
 
-def main_train_loop(model, criterion, optimizer, device,
-                    sequence_loader=None, 
-                    histone_loader=None, histone_list=None,
-                    dat_augment=False,
-                    report_iters=300):
-    assert(sequence_loader is not None or histone_loader is not None)
-    dat_loader = normalize_dat_loader(sequence_loader, histone_loader)
-    total_loss = 0.0
+
+def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch, 
+               check_iters, train_loader, val_loader, best_model_path, 
+               histone_list=None, dat_augment=False):
+    '''Model training for an epoch
+    '''
+    # assert(sequence_loader is not None or histone_loader is not None)
+    # dat_loader = normalize_dat_loader(sequence_loader, histone_loader)
+    start_iter = epoch*len(train_loader)
+    # total_loss = 0.0
     model.train()  # set training state.
-    for i, batch_dat in enumerate(dat_loader):
+    for i, batch_dat in enumerate(train_loader):
         optimizer.zero_grad()
         dat_dict, label = normalize_dat_dict(
-            batch_dat, 
-            use_sequence=(sequence_loader is not None), 
-            use_histone=(histone_loader is not None), 
+            batch_dat, use_sequence=False, use_histone=True, 
             dat_augment=dat_augment, device=device, 
             histone_list=histone_list)
-
         # forward-backward propagation.
-        #outputs = model(**dat_dict)[0]
         outputs = model(**dat_dict)
         loss = criterion(outputs, label)
         loss.backward()
         optimizer.step()
-        optimizer.zero_grad()
-        total_loss += loss
-        #scheduler.step()
-        if (i > 0) and (i % report_iters == 0): #about every half-epoch
-            print("The average training loss for each batch was {0} after {1} batches".format(
-            total_loss/i, i))
-#         print("The average training loss for each batch was {0}".format(
-#             total_loss))
+        train_loss += loss.item()
+        nb_iter = start_iter + i + 1
+        if nb_iter % check_iters == 0:
+            avg_val_loss, val_ap = validation_loop(
+                model, criterion, device, val_loader, 
+                histone_list=histone_list, dat_augment=dat_augment)
+            val_mAP = np.mean(val_ap[:-1])  # ignore background class.
+            print('Iter={}, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
+                  '{:.3f}'.format(nb_iter, train_loss/check_iters, 
+                                  avg_val_loss, val_mAP), end='')
+            if val_mAP > best_mAP:
+                best_mAP = val_mAP
+                torch.save(model.state_dict(), best_model_path)
+                print(' --> best mAP updated; model saved.')
+            else:
+                print()
+            train_loss = .0
+    return train_loss, i % check_iters, best_mAP
 
-def validation_loop(model, criterion, device, sequence_loader=None, 
-                    histone_loader=None, histone_list=None, 
-                    dat_augment=False, nb_cls=4):
-    assert(sequence_loader is not None or histone_loader is not None)
-    dat_loader = normalize_dat_loader(sequence_loader, histone_loader)
+
+def validation_loop(model, criterion, device, dat_loader, histone_list=None, 
+                    dat_augment=False, return_preds=False):
+    '''Model validation on an entire val set
+    '''
+    # assert(sequence_loader is not None or histone_loader is not None)
+    # dat_loader = normalize_dat_loader(sequence_loader, histone_loader)
     model.eval()  # set evaluation state.
     with torch.no_grad():
-        p, t, s = [], [], []
+        t, s, p = [], [], []  # target, score, pred lists.
         total_loss = 0.0
         for batch_dat in dat_loader:
             dat_dict, label = normalize_dat_dict(
-                batch_dat, 
-                use_sequence=(sequence_loader is not None), 
-                use_histone=(histone_loader is not None), 
+                batch_dat, use_sequence=False, use_histone=True, 
                 dat_augment=dat_augment, device=device, 
                 histone_list=histone_list)
             # scoring.
-            #pscores, transform = model(**dat_dict)
             pscores = model(**dat_dict)
             loss = criterion(pscores, label)
-            total_loss += loss
-            _, preds = torch.max(pscores.data, 1)
-            ground_truth = label.cpu().numpy()
+            total_loss += loss.item()
+            _, preds = torch.max(pscores, 1)
             # accumulate results.
             p.append(preds.cpu().numpy())
             s.append(pscores.cpu().numpy())
-            t.append(ground_truth)
-        print("The average validation loss for each batch was {}".format(total_loss/len(p)))
+            t.append(label.cpu().numpy())
         predictions = np.concatenate(p)
+        scores = np.concatenate(s)
+        nb_cls = scores.shape[1]
         truevals = np.concatenate(t)
         binvals = label_binarize(truevals, classes=list(range(nb_cls)))
-        scores = np.concatenate(s)
-        return truevals, predictions, binvals, scores
-        #return truevals, predictions, binvals, scores, transform[0], transform[1], dat_dict
+        all_cls_ap = average_precision_score(binvals, scores, average=None)
+    if return_preds:
+        return total_loss/len(dat_loader), all_cls_ap, \
+            (truevals, predictions, np.exp(scores)) # log(softmax)->prob.
+    return total_loss/len(dat_loader), all_cls_ap
+
 
 def prediction_loop(model, device, sequence_loader=None, 
                     histone_loader=None, histone_list=None, 

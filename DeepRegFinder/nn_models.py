@@ -20,7 +20,8 @@ class KimNet(nn.Module):
             nn.Softplus(),
             nn.Linear(600, 500),
             nn.Softplus(),
-            #unclear in paper between which layers they do dropout so I just did it here
+            #unclear in paper between which layers they do dropout so I 
+            # just did it here
             nn.Dropout(),
             nn.Linear(500, 400),
             nn.Softplus(),
@@ -95,7 +96,14 @@ class ConvNet(nn.Module):
         return torch.squeeze(torch.log(o))
 
 
-
+def init_weights(m):
+    if isinstance(m, nn.Conv1d):
+        if m.weight.dim() >= 2:
+            nn.init.kaiming_uniform_(
+                m.weight.data, nonlinearity='leaky_relu', a=.01)
+        if m.bias.dim() >= 2:
+            nn.init.kaiming_uniform_(
+                m.bias.data, nonlinearity='leaky_relu', a=.01)
 
 
 

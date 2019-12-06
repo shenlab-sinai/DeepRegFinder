@@ -1,18 +1,18 @@
+#!/usr/bin/env python3
+from DeepRegFinder.training_functions import *
+from DeepRegFinder.nn_models import ConvNet
 import torch
 import torch.nn as nn
 import numpy as np
-from torchvision import transforms, utils
-from torch.utils.data import Dataset, DataLoader
+import pandas as pd
+from torch.utils.data import DataLoader, WeightedRandomSampler
 import matplotlib.pyplot as plt
-from net_functions import *
 import pycm
-from sklearn.preprocessing import label_binarize
 from sklearn.metrics import confusion_matrix, average_precision_score
 from torchsummary import summary
 import sys
 import yaml
 import os
-import math
 
 """
 Takes in yaml file as first input
@@ -23,86 +23,119 @@ with open(params) as f:
     # use safe_load instead load
     dataMap = yaml.safe_load(f)
 
-histone_train_loader = torch.load(dataMap['histone_train_loader'])
-histone_test_loader = torch.load(dataMap['histone_eval_loader'])
-
-class_weights_file = dataMap['class_weights']
-class_weights = torch.from_numpy(1/np.loadtxt(class_weights_file, delimiter='\n')).float()
-
-num_classes = dataMap['num_classes']
-num_marks = dataMap['num_marks']
-fig_name = dataMap['fig_name']
-dat_aug = dataMap['data_augment']
-best_mAP_file = dataMap['best_mAP_filename']
-
-# Make device agnostic code.
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-from nn_models import ConvNet
-
-def init_weights(m):
-    if isinstance(m, nn.Conv1d):
-        if m.weight.dim() >= 2:
-            nn.init.kaiming_uniform_(m.weight.data, nonlinearity='leaky_relu', a=.01)
-        if m.bias.dim() >= 2:
-            nn.init.kaiming_uniform_(m.bias.data, nonlinearity='leaky_relu', a=.01)
-
-
-classify = ConvNet(marks = num_marks, nb_cls = num_classes).float().to(device)
-#CLASS_WEIGHTS = torch.from_numpy(np.array([23.39, 26.67, 5.42, 1.36])).float()
-criterion = nn.NLLLoss(weight=class_weights).to(device)
-
 output_folder = sys.argv[2]
+output_folder = os.path.join(output_folder, 'model')
 if not os.path.exists(output_folder):
     os.mkdir(output_folder)
+
+# Load datasets.
+d = torch.load(dataMap['all_datasets'])
+train_dataset = d['train']
+val_dataset = d['val']
+test_dataset = d['test']
+# Construct dataloaders using weighted sampler.
+batch_size = dataMap['batch_size']
+cpu_threads = dataMap['cpu_threads']
+ys = np.array([ y.item() for _, y in train_dataset])
+yu, yc = np.unique(ys, return_counts=True)
+assert yu[-1] - yu[0] + 1 == len(yu), \
+       'Expect the unique train labels to be a sequence \
+        of [0..{}] but got {}'.format(yu[-1], yu)
+weights = np.zeros_like(ys, dtype='float')
+for i, f in enumerate(yc):
+    weights[ys==i] = 1/f
+weighted_sampler = WeightedRandomSampler(
+    weights, len(ys)//batch_size*batch_size, 
+    replacement=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, 
+                          sampler=weighted_sampler, num_workers=cpu_threads)
+val_loader = DataLoader(val_dataset, batch_size=batch_size, 
+                        num_workers=cpu_threads, drop_last=False)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, 
+                         num_workers=cpu_threads, drop_last=False)
+num_marks = train_dataset[0][0].shape[0]
+num_classes = len(yu)
+
+# Other training related parameters.
+dat_aug = dataMap['data_augment']
+best_model_name = dataMap['best_model_name']
+best_model_path = os.path.join(output_folder, best_model_name)
+nb_epoch = dataMap['num_epochs']
+check_iters = dataMap['check_iters']
+confus_mat_name = dataMap['confus_mat_name']
+pred_out_name = dataMap['pred_out_name']
+summary_out_name = dataMap['summary_out_name']
+
+# model, criterion, optimizer, etc.
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+model = ConvNet(marks=num_marks, nb_cls=num_classes).to(device)
+criterion = nn.NLLLoss(reduction='mean').to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=.01)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
     
 start_epoch = 0
-nb_epoch = dataMap['num_epochs']
-best_model_name = output_folder + '/' + best_mAP_file
 # ==== initialization === #
-best_mAP = -math.inf
-classify.apply(init_weights)
-if dataMap['continue_training']:
-    classify.load_state_dict(torch.load(dataMap['prev_best_mAP_file']))
-#classify.load_state_dict(torch.load(best_model_name))
-optimizer = torch.optim.Adam(classify.parameters(), lr=.01)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+best_mAP = 0
+train_loss = 0
 # ======================= #
 for epoch in range(start_epoch, nb_epoch):
-    print('Epoch {}'.format(epoch + 1))
+    # print('Epoch {}'.format(epoch + 1))
+    train_loss, train_iter, best_mAP = train_loop(
+        model, criterion, optimizer, device, train_loss, best_mAP, epoch, 
+        check_iters, train_loader, val_loader, best_model_path, 
+        histone_list=None, dat_augment=dat_aug)
     scheduler.step()
-    main_train_loop(classify, criterion, optimizer, device, 
-                    sequence_loader=None, 
-                    histone_loader=histone_train_loader, 
-                    dat_augment=dat_aug, report_iters=300)
-    tv, preds, bv, scores = validation_loop(
-        classify, criterion, device, 
-        sequence_loader=None, 
-        histone_loader=histone_test_loader, 
-        dat_augment=dat_aug, nb_cls=num_classes)
-    all_cls_ap = average_precision_score(bv, scores, average=None)
-    mAP = np.mean(all_cls_ap[:-1])  # ignore background class.
-    if mAP > best_mAP:
-        best_mAP = mAP
-        print('--> Best mAP updated to: {:.3f}, enhancer poised: {:.3f}, enhancer active: {:.3f}, TSS poised: {:.3f}, TSS active: {:.3f}'.format(mAP, all_cls_ap[0], all_cls_ap[1], all_cls_ap[2], all_cls_ap[3]))
-        state = classify.state_dict()
-        torch.save(state, best_model_name)
-        
-        
-classify.load_state_dict(torch.load(best_model_name))
-truevals, predictions, binvals, scores = validation_loop(
-    classify, criterion, device, 
-    sequence_loader=None, 
-    histone_loader=histone_test_loader, 
-    dat_augment=dat_aug, nb_cls=num_classes)
-all_cls_ap = average_precision_score(binvals, scores, average=None)
-mAP = np.mean(all_cls_ap[:-1])  # ignore background class.
-print('mAP: {:.3f}, enhancer poised: {:.3f}, enhancer active: {:.3f}, TSS poised: {:.3f}, TSS active: {:.3f}'.format(mAP, all_cls_ap[0], all_cls_ap[1], all_cls_ap[2], all_cls_ap[3]))
+# Evaluate the final model performance.
+if train_iter > 0:  # remaining iters not yet checked.
+    avg_val_loss, val_ap = validation_loop(
+        model, criterion, device, val_loader, 
+        histone_list=None, dat_augment=dat_aug)
+    val_mAP = np.mean(val_ap[:-1])
+    print('Finally, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
+          '{:.3f}'.format(train_loss/(train_iter + 1), 
+                          avg_val_loss, val_mAP), end='')
+    if val_mAP > best_mAP:
+        best_mAP = val_mAP
+        torch.save(model.state_dict(), best_model_path)
+        print(' --> best mAP updated; model saved.')
+    else:
+        print()
+# Evaluate on the test set.
+model.load_state_dict(torch.load(best_model_path))
+avg_test_loss, test_ap, test_preds = validation_loop(
+    model, criterion, device, test_loader, 
+    histone_list=None, dat_augment=dat_aug, 
+    return_preds=True)
+test_mAP = np.mean(test_ap[:-1])
+truevals, predictions, probs = test_preds
+def _test_set_summary(fh):
+    '''Print summary info on the test set
+    '''
+    print('='*10, 'On test set', '='*10, file=fh)
+    print('avg test loss={:.3f}, mAP={:.3f}'.format(avg_test_loss, test_mAP), 
+          file=fh)
+    print('AP for each class: poised enh={:.3f}, active enh={:.3f}, '
+          'poised tss={:.3f}, active tss={:.3f}'.format(
+            test_ap[0], test_ap[1], test_ap[2], test_ap[3]), 
+          file=fh
+         )
+_test_set_summary(sys.stdout)
+with open(os.path.join(output_folder, summary_out_name), 'w') as fh:
+    _test_set_summary(fh)
 
+# Output figures and other stats.
+# confusion matrix.
 m = confusion_matrix(truevals, predictions)
-plot_confusion_matrix(m, norm=True, n_classes=num_classes)
-plt.savefig(output_folder + '/' + fig_name)
+cm = plot_confusion_matrix(m, norm=True, n_classes=num_classes)
+plt.savefig(os.path.join(output_folder, confus_mat_name + '.png'))
+cm.to_csv(os.path.join(output_folder, confus_mat_name + '.csv'))
+# test set predictions.
+df = np.stack([truevals, predictions], axis=1)
+df = np.concatenate([df, probs], axis=1)
+col_names = ['label', 'pred', 'poised_enh', 'active_enh', 
+             'poised_tss', 'active_tss', 'background']
+df = pd.DataFrame(df, columns=col_names).round(3)
+df = df.astype({'label': 'int', 'pred': 'int'})
+df.to_csv(os.path.join(output_folder, pred_out_name), index=False)
 
-pm = pycm.ConfusionMatrix(truevals, predictions)
-my_file = open(output_folder + '/' + dataMap['fig_data'], "w")
-print(pm, file = my_file)
+
