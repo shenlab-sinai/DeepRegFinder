@@ -11,3 +11,4 @@
 
 ### Training
 - add weight initialization.
+- add tensorboard for training monitor. DONE

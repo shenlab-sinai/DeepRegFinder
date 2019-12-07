@@ -77,10 +77,12 @@ def main():
                    output_folder, genome_size_file=genome_size_file)
     print('Finished processing genome')
     bg_genome = os.path.join(output_folder, 'genome_data', 'bgwindowed.filtered.bed')
-    genome_saf_format = os.path.join(output_folder, 'genome_data', 'windowed.filtered.saf')
+    genome_saf_format = os.path.join(output_folder, 'genome_data', 
+                                     'windowed.filtered.saf')
     
     # TSSs are from existing annotations. Clustered TSSs are collapsed.
-    process_tss(tss_file, DHS_file, genome, valids, enhancer_distal_num, distal_num, output_folder)
+    process_tss(tss_file, DHS_file, genome, valids, enhancer_distal_num, 
+                distal_num, output_folder)
     print('Finished processing tss')
     unslopped_tss = os.path.join(output_folder, 'tss_data', 'true_tss_filtered.bed')
     enhancer_slopped_tss =  os.path.join(output_folder, 'tss_data', 'enhancer_slopped_tss.bed')
@@ -89,7 +91,8 @@ def main():
     
     # Enhancers are defined as p300 peaks (narrow) that are away 
     # from potential TSSs.
-    process_enhancers(p300_file, DHS_file, enhancer_slopped_tss, gene_bodies, H3K4me3_file, distal_num, genome, valids, output_folder)
+    process_enhancers(p300_file, DHS_file, enhancer_slopped_tss, gene_bodies, 
+                      H3K4me3_file, distal_num, genome, valids, output_folder)
     print('Finished processing enhancers')
     enhancers = os.path.join(output_folder, 'enhancer_data', 'strict_enhancers_filtered.bed')
     enhancers_saf = os.path.join(output_folder, 'enhancer_data', 'strict_slopped_enh.saf')
@@ -100,12 +103,20 @@ def main():
     final_tfbs_file = os.path.join(output_folder, 'tfbs_data', 'final_tfbs.bed')
     
     # Background regions are genomic bins minus enhancers, TSS and DHS.
-    process_background(bg_genome, valids, slopped_tss, DHS_file, p300_file, final_tfbs_file, enhancer_distal_num, genome, output_folder)
+    process_background(bg_genome, valids, slopped_tss, DHS_file, p300_file, 
+                       final_tfbs_file, enhancer_distal_num, genome, 
+                       output_folder)
     print('Finished processing background')
     final_background = os.path.join(output_folder, 'background_data', 'final_bg.bed')
 
+    # True positive markers are used to calculate validation rate after whole genome prediction.
+    process_tpms(slopped_tss, p300_file, DHS_file, final_tfbs_file, valids, 
+                 output_folder)
+    print('Finished processing True Positive Markers')
+
     # Get histone mark counts for the above defined regions.
-    process_histones(genome_saf_format, histone_path, output_folder, hist_logtrans, cpu_threads=cpu_threads)
+    process_histones(genome_saf_format, histone_path, output_folder, 
+                     hist_logtrans, cpu_threads=cpu_threads)
     if hist_logtrans:
         all_histone_data = os.path.join(
             output_folder, 'histone_data', 'alltogether_notnormed_logtrans.txt')
@@ -121,8 +132,10 @@ def main():
     histone_compressed = all_histone_data + '.gz'
 
     # Get GRO-seq counts for enhancers and TSSs.
-    process_groseq(enhancers_saf, sense_bam_file, antisense_bam_file, output_folder, groseq_logtrans, cpu_threads=cpu_threads)
-    process_groseq(slopped_tss_saf, sense_bam_file, antisense_bam_file, output_folder, groseq_logtrans, cpu_threads=cpu_threads)
+    process_groseq(enhancers_saf, sense_bam_file, antisense_bam_file, 
+                   output_folder, groseq_logtrans, cpu_threads=cpu_threads)
+    process_groseq(slopped_tss_saf, sense_bam_file, antisense_bam_file, 
+                   output_folder, groseq_logtrans, cpu_threads=cpu_threads)
     if groseq_logtrans:
         file_tail = '_logtrans.txt'
     else:
@@ -145,7 +158,11 @@ def main():
     positive_enh, negative_enh = positive_negative_clustering(enh_sense_file, enh_antisense_file)
     positive_tss, negative_tss = positive_negative_clustering(tss_sense_file, tss_antisense_file)
     
-    make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss, enhancers, unslopped_tss, final_background, histone_compressed, window_width, number_of_windows, output_folder, bkg_samples=bkg_samples, nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p)
+    make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss, 
+                        enhancers, unslopped_tss, final_background, 
+                        histone_compressed, window_width, number_of_windows, 
+                        output_folder, bkg_samples=bkg_samples, 
+                        nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p)
     print('Finished making train-val-test datasets')
     
     # Print time.

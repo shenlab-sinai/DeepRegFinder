@@ -20,10 +20,12 @@ Collection of helper functions for validation and accuracy
 
 def plot_pr(precision, recall, average_precision):
     """
-    Given a dictionary of preciscion and recall values for each class, uses pyplot to plot the PR
-    curve for each class as well as the micro-averaged PR curve and iso-f1 curves. 
+    Given a dictionary of preciscion and recall values for each class, uses 
+    pyplot to plot the PR curve for each class as well as the micro-averaged 
+    PR curve and iso-f1 curves. 
     """
-    colors = itls.cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue', 'teal', 'olive'])
+    colors = itls.cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue', 
+                         'teal', 'olive'])
 
     plt.figure(figsize=(7, 8))
     f_scores = np.linspace(0.2, 0.8, num=4)
@@ -41,7 +43,8 @@ def plot_pr(precision, recall, average_precision):
     lines.append(l)
     labels.append('micro-average Precision-recall (area = {0:0.2f})'
                   ''.format(average_precision["micro"]))
-    class_lookup = {0: "Poised Enhancer", 1: "Active Enhancer", 2: "TSS", 3: "Background"}
+    class_lookup = {0: "Poised Enhancer", 1: "Active Enhancer", 2: "TSS", 
+                    3: "Background"}
     for i, color in zip(range(4), colors):
         l, = plt.plot(recall[i], precision[i], color=color, lw=2)
         lines.append(l)
@@ -73,7 +76,8 @@ def plot_rocs(fpr, tpr, roc_auc):
              label='macro-average ROC curve (area = {0:0.2f})'
                    ''.format(roc_auc['macro']),
              color='navy', linestyle=':', linewidth=4)
-    class_lookup = {0: "Poised Enhancer", 1: "Active Enhancer", 2: "TSS", 3: "Background"}
+    class_lookup = {0: "Poised Enhancer", 1: "Active Enhancer", 2: "TSS", 
+                    3: "Background"}
 
     colors = itls.cycle(['aqua', 'darkorange', 'cornflowerblue', 'olive'])
     for i, color in zip(range(4), colors):
@@ -106,6 +110,7 @@ def plot_confusion_matrix(cm, norm=True, n_classes=5):
         classes = [ str(c + 1) for c in range(n_classes)]
     cmap = plt.cm.Blues
     plt.figure(figsize=(8, 8))
+    plt.rcParams.update({'font.size': 16})
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.colorbar()
     ticks = np.arange(n_classes)
@@ -118,7 +123,6 @@ def plot_confusion_matrix(cm, norm=True, n_classes=5):
                  color='white' if cm[i,j] > (cm.max()/2.) else 'black')
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
-    plt.rcParams.update({'font.size': 16})
     plt.tight_layout()
 
     df = pd.DataFrame(cm_, columns=classes, index=classes)
@@ -237,7 +241,7 @@ def normalize_dat_dict(batch_data, use_sequence, use_histone,
 
 def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch, 
                check_iters, train_loader, val_loader, best_model_path, 
-               histone_list=None, dat_augment=False):
+               histone_list=None, dat_augment=False, writer=None):
     '''Model training for an epoch
     '''
     # assert(sequence_loader is not None or histone_loader is not None)
@@ -263,9 +267,14 @@ def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch,
                 model, criterion, device, val_loader, 
                 histone_list=histone_list, dat_augment=dat_augment)
             val_mAP = np.mean(val_ap[:-1])  # ignore background class.
+            avg_train_loss = train_loss/check_iters
             print('Iter={}, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
-                  '{:.3f}'.format(nb_iter, train_loss/check_iters, 
+                  '{:.3f}'.format(nb_iter, avg_train_loss, 
                                   avg_val_loss, val_mAP), end='')
+            if writer is not None:  # tensorboard logging.
+                writer.add_scalar('Loss/train', avg_train_loss, nb_iter)
+                writer.add_scalar('Loss/val', avg_val_loss, nb_iter)
+                writer.add_scalar('mAP/val', val_mAP, nb_iter)
             if val_mAP > best_mAP:
                 best_mAP = val_mAP
                 torch.save(model.state_dict(), best_model_path)
@@ -302,13 +311,17 @@ def validation_loop(model, criterion, device, dat_loader, histone_list=None,
             t.append(label.cpu().numpy())
         predictions = np.concatenate(p)
         scores = np.concatenate(s)
+        probs = np.exp(scores) # log(softmax)->prob.
         nb_cls = scores.shape[1]
         truevals = np.concatenate(t)
         binvals = label_binarize(truevals, classes=list(range(nb_cls)))
-        all_cls_ap = average_precision_score(binvals, scores, average=None)
+        try:
+            all_cls_ap = average_precision_score(binvals, probs, average=None)
+        except ValueError:
+            import pdb; pdb.set_trace()
     if return_preds:
         return total_loss/len(dat_loader), all_cls_ap, \
-            (truevals, predictions, np.exp(scores)) # log(softmax)->prob.
+            (truevals, predictions, probs)
     return total_loss/len(dat_loader), all_cls_ap
 
 

@@ -6,6 +6,7 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import pycm
 from sklearn.metrics import confusion_matrix, average_precision_score
@@ -41,6 +42,8 @@ yu, yc = np.unique(ys, return_counts=True)
 assert yu[-1] - yu[0] + 1 == len(yu), \
        'Expect the unique train labels to be a sequence \
         of [0..{}] but got {}'.format(yu[-1], yu)
+print('Train unique labels: {}'.format(yu))
+print('Train label counts: {}'.format(yc))
 weights = np.zeros_like(ys, dtype='float')
 for i, f in enumerate(yc):
     weights[ys==i] = 1/f
@@ -62,6 +65,7 @@ best_model_name = dataMap['best_model_name']
 best_model_path = os.path.join(output_folder, best_model_name)
 nb_epoch = dataMap['num_epochs']
 check_iters = dataMap['check_iters']
+train_logs = os.path.join(output_folder, 'train_logs')
 confus_mat_name = dataMap['confus_mat_name']
 pred_out_name = dataMap['pred_out_name']
 summary_out_name = dataMap['summary_out_name']
@@ -73,17 +77,18 @@ criterion = nn.NLLLoss(reduction='mean').to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=.01)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
     
-start_epoch = 0
 # ==== initialization === #
+start_epoch = 0
 best_mAP = 0
 train_loss = 0
+writer = SummaryWriter(train_logs)
 # ======================= #
 for epoch in range(start_epoch, nb_epoch):
     # print('Epoch {}'.format(epoch + 1))
     train_loss, train_iter, best_mAP = train_loop(
         model, criterion, optimizer, device, train_loss, best_mAP, epoch, 
         check_iters, train_loader, val_loader, best_model_path, 
-        histone_list=None, dat_augment=dat_aug)
+        histone_list=None, dat_augment=dat_aug, writer=writer)
     scheduler.step()
 # Evaluate the final model performance.
 if train_iter > 0:  # remaining iters not yet checked.

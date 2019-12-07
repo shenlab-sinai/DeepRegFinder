@@ -17,7 +17,7 @@ import math
 
 __all__ = ['process_groseq', 'process_background', 'process_enhancers', 
            'process_genome', 'process_histones', 'process_tfbs', 'process_tss', 
-           'positive_negative_clustering', 'make_tensor_dataset', 
+           'process_tpms', 'positive_negative_clustering', 'make_tensor_dataset', 
            'ChannNormDataset']
 
 
@@ -47,6 +47,15 @@ def _logtrans_featcnt_file(file):
     df.iloc[:, -1] = df.iloc[:, -1].apply(lambda x: np.log2(x + 1))
     df.to_csv(out_name, sep="\t", index=False)
     # subprocess.call(['./log_transform.sh', file, out_name])
+
+"""
+Nomralize the read counts from featureCounts.
+"""
+def _norm_featcnt_file(file):
+    df = pd.read_csv(file, comment="#", delim_whitespace=True)
+    # Normalize to 100M reads.
+    df.iloc[:, -1] *= 100e6/df.iloc[:, -1].sum()
+    df.to_csv(file, sep="\t", index=False)
 
 
 """
@@ -238,6 +247,10 @@ def process_histones(genome_saf, histone_path, output_folder,
             print('Done')
             sys.stdout.flush()
     
+    # Normalize read counts for each rep before averaging them.
+    for file in out_files:
+        _norm_featcnt_file(file)
+
     # Log transforming data if necessary
     if hist_logtrans:
         for file in out_files:
@@ -292,15 +305,41 @@ def process_tfbs(slopped_tss, TFBS, valids, output_folder):
     tss = BedTool(slopped_tss)    
     # Getting rid of TFBS that aren't distal to tss
     # tss file is slopped so range of each interval is 2kb, making sure 
-    # anything that is overlapping is at least 1kb away.
+    # anything that isn't overlapping is at least 1kb away.
     for i, bed in enumerate(TFBS):
         tfbs = BedTool(bed).filter(lambda p: p.chrom in valids)
         tfbs = tfbs.subtract(tss, A=True)
         if i == 0:
             final_tfbs = tfbs
         else:
-            final_tfbs.cat(tfbs)
+            final_tfbs.cat(tfbs, postmerge=True)
     final_tfbs.sort().saveas(os.path.join(tfbs_out_folder, 'final_tfbs.bed'))
+
+
+"""
+Creating TPMs file by getting rid of TPMs that are not distal to tss
+Merge TPMs and save as final_tpms.bed
+"""
+def process_tpms(slopped_tss_file, p300_file, dhs_file, final_tfbs_file, 
+                 valids, output_folder):
+
+    tpms_out_folder = os.path.join(output_folder, 'tpms_data')
+    if not os.path.exists(tpms_out_folder):
+        os.mkdir(tpms_out_folder)
+        
+    tss = BedTool(slopped_tss_file)
+    p300 = BedTool(p300_file).filter(lambda p: p.chrom in valids)
+    dhs = BedTool(dhs_file).filter(lambda p: p.chrom in valids)
+    p300 = p300.subtract(tss, A=True)
+    dhs = dhs.subtract(tss, A=True)
+    tfbs = BedTool(final_tfbs_file)  # already filtered and subtracted.
+    
+    tpms = p300
+    tpms = tpms.cat(dhs, postmerge=True)
+    tpms = tpms.cat(tfbs, postmerge=True)
+    tpms.sort().saveas(os.path.join(tpms_out_folder, 'final_tpms.bed'))
+    # file_compress_name = file + '.gz'
+    # subprocess.call(['./index_file.sh', file, file_compress_name])
 
 
 '''
@@ -546,6 +585,7 @@ def make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss,
     val_dataset = TensorDataset(val_X_t, val_y_t)
     test_dataset = TensorDataset(test_X_t, test_y_t)
     # Normalization by mean and std.
+    # import pdb; pdb.set_trace()
     chann_mean, chann_std = ChannNormDataset.chann_norm_stats(train_dataset)
     train_dataset = ChannNormDataset(train_dataset, chann_mean, chann_std)
     val_dataset = ChannNormDataset(val_dataset, chann_mean, chann_std)
@@ -555,9 +595,13 @@ def make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss,
         {'train': train_dataset, 'val': val_dataset, 'test': test_dataset}, 
         os.path.join(tensor_out_folder, 'all_datasets.pth.tar')
     )
-    # torch.save(train_dataset, os.path.join(tensor_out_folder, 'histone_train_dataset.pt'))
-    # torch.save(val_dataset, os.path.join(tensor_out_folder, 'histone_val_dataset.pt'))
-    # torch.save(test_dataset, os.path.join(tensor_out_folder, 'histone_test_dataset.pt'))
+
+    # Output channel-wise mean and std for future reference.
+    header = pd.read_csv(hist_cnt_file, nrows=0, delim_whitespace=True)
+    marks = header.columns[3:].values.tolist()
+    stats = torch.stack((chann_mean, chann_std), dim=1)
+    df = pd.DataFrame(stats.cpu().numpy(), columns=['mean', 'std'], index=marks)
+    df.to_csv(os.path.join(tensor_out_folder, 'chann_stats.csv'))
 
 
 '''
