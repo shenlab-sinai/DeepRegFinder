@@ -193,7 +193,7 @@ def process_genome(genome, valids, window_width, number_of_windows,
         else:
             genome_windowed = BedTool().window_maker(genome=genome, 
                                                      w=window_width)
-            genome_windowed.filter(lambda p: p.chrom in valids)
+            genome_windowed = genome_windowed.filter(lambda p: p.chrom in valids)
             genome_windowed.saveas(filtered_save_name)
 
     # Create windowed BED and SAF files.    
