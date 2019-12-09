@@ -282,7 +282,7 @@ def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch,
             else:
                 print()
             train_loss = .0
-    return train_loss, i % check_iters, best_mAP
+    return train_loss, (i + 1) % check_iters, best_mAP
 
 
 def validation_loop(model, criterion, device, dat_loader, histone_list=None, 

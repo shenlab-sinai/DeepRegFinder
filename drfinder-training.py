@@ -97,8 +97,8 @@ if train_iter > 0:  # remaining iters not yet checked.
         histone_list=None, dat_augment=dat_aug)
     val_mAP = np.mean(val_ap[:-1])
     print('Finally, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
-          '{:.3f}'.format(train_loss/(train_iter + 1), 
-                          avg_val_loss, val_mAP), end='')
+          '{:.3f}'.format(train_loss/train_iter, avg_val_loss, val_mAP), 
+          end='')
     if val_mAP > best_mAP:
         best_mAP = val_mAP
         torch.save(model.state_dict(), best_model_path)
