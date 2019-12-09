@@ -36,35 +36,32 @@ class KimNet(nn.Module):
 
 
 class ConvNet(nn.Module):
-    def __init__(self, marks=3, nb_cls=5):
+    def __init__(self, marks=3, nb_cls=5, use_leakyrelu=False):
+        assert nb_cls > 1, 'output layer size must be at least 2.'
         super(ConvNet, self).__init__()
+
         self.layer_one = nn.Sequential(
-            nn.Conv1d(marks, 32, 3, padding=1), #in channels, out channels, kernel size
+            #in channels, out channels, kernel size
+            nn.Conv1d(marks, 32, 3, padding=1), 
             nn.BatchNorm1d(32),
-            nn.LeakyReLU(),
-            #nn.MaxPool1d(2, stride=2) #kernel size
-            #20-->9
+            nn.LeakyReLU() if use_leakyrelu else nn.ReLU(),
         )
         self.layer_two = nn.Sequential(
             nn.Conv1d(32, 32, 3, padding=1),
             nn.BatchNorm1d(32),
-            nn.LeakyReLU(),
+            nn.LeakyReLU() if use_leakyrelu else nn.ReLU(),
             nn.MaxPool1d(2, stride=2)
-            #9-->6
         )
         self.layer_three = nn.Sequential(
             nn.Conv1d(32, 64, 3, padding=1),
             nn.BatchNorm1d(64),
-            nn.LeakyReLU(),
-           # nn.MaxPool1d(2, stride=1)
-            #6-->3
+            nn.LeakyReLU() if use_leakyrelu else nn.ReLU(),
         )
         self.layer_four = nn.Sequential(
             nn.Conv1d(64, 64, 3, padding=1),
             nn.BatchNorm1d(64),
-            nn.LeakyReLU(),
+            nn.LeakyReLU() if use_leakyrelu else nn.ReLU(),
             nn.MaxPool1d(2, stride=2)
-            #3-->1
         )
 
         self.final_layer = nn.Sequential( 

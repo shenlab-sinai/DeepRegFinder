@@ -60,6 +60,7 @@ num_marks = train_dataset[0][0].shape[0]
 num_classes = len(yu)
 
 # Other training related parameters.
+init_lr = dataMap['init_lr']
 dat_aug = dataMap['data_augment']
 best_model_name = dataMap['best_model_name']
 best_model_path = os.path.join(output_folder, best_model_name)
@@ -72,9 +73,10 @@ summary_out_name = dataMap['summary_out_name']
 
 # model, criterion, optimizer, etc.
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-model = ConvNet(marks=num_marks, nb_cls=num_classes).to(device)
+model = ConvNet(marks=num_marks, nb_cls=num_classes, 
+                use_leakyrelu=False).to(device)
 criterion = nn.NLLLoss(reduction='mean').to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=init_lr)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
     
 # ==== initialization === #
