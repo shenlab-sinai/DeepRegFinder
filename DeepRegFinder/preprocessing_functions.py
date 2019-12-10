@@ -312,7 +312,7 @@ def process_tfbs(slopped_tss, TFBS, valids, output_folder):
         if i == 0:
             final_tfbs = tfbs
         else:
-            final_tfbs.cat(tfbs, postmerge=True)
+            final_tfbs = final_tfbs.cat(tfbs, postmerge=True)
     final_tfbs.sort().saveas(os.path.join(tfbs_out_folder, 'final_tfbs.bed'))
 
 
