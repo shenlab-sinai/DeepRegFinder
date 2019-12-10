@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from DeepRegFinder.training_functions import *
+from DeepRegFinder.traineval_functions import *
 from DeepRegFinder.nn_models import ConvNet
 import torch
 import torch.nn as nn
@@ -94,8 +94,8 @@ for epoch in range(start_epoch, nb_epoch):
     scheduler.step()
 # Evaluate the final model performance.
 if train_iter > 0:  # remaining iters not yet checked.
-    avg_val_loss, val_ap = validation_loop(
-        model, criterion, device, val_loader, 
+    avg_val_loss, val_ap = prediction_loop(
+        model, device, val_loader, criterion=criterion, 
         histone_list=None, dat_augment=dat_aug)
     val_mAP = np.mean(val_ap[:-1])
     print('Finally, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
@@ -109,8 +109,8 @@ if train_iter > 0:  # remaining iters not yet checked.
         print()
 # Evaluate on the test set.
 model.load_state_dict(torch.load(best_model_path))
-avg_test_loss, test_ap, test_preds = validation_loop(
-    model, criterion, device, test_loader, 
+avg_test_loss, test_ap, test_preds = prediction_loop(
+    model, device, test_loader, criterion=criterion, 
     histone_list=None, dat_augment=dat_aug, 
     return_preds=True)
 test_mAP = np.mean(test_ap[:-1])

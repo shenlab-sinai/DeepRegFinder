@@ -4,7 +4,7 @@ batch_size: 256
 cpu_threads: 6
 data_augment: False
 best_model_name: 'best-mAP-model.pt' # best model file name.
-num_epochs: 10 # #training epochs.
+num_epochs: 5 # #training epochs.
 check_iters: 30 # #iters before check model performance
 confus_mat_name: 'test_confusion_matrix' # Name of confusion matrix output
 pred_out_name: 'test_preds.csv'

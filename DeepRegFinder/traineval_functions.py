@@ -62,8 +62,9 @@ def plot_pr(precision, recall, average_precision):
 
 def plot_rocs(fpr, tpr, roc_auc):
     """
-    Given dictionaries of true positive rate and falce positive rates for each class & roc_auc values for each class,
-    plots micro and macro averaged ROC curves as well as the curve for each class. 
+    Given dictionaries of true positive rate and falce positive rates for each 
+    class & roc_auc values for each class, plots micro and macro averaged ROC 
+    curves as well as the curve for each class. 
     """
     plt.figure()
     lw=2
@@ -263,8 +264,8 @@ def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch,
         train_loss += loss.item()
         nb_iter = start_iter + i + 1
         if nb_iter % check_iters == 0:
-            avg_val_loss, val_ap = validation_loop(
-                model, criterion, device, val_loader, 
+            avg_val_loss, val_ap = prediction_loop(
+                model, device, val_loader, criterion=criterion, 
                 histone_list=histone_list, dat_augment=dat_augment)
             val_mAP = np.mean(val_ap[:-1])  # ignore background class.
             avg_train_loss = train_loss/check_iters
@@ -285,84 +286,68 @@ def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch,
     return train_loss, (i + 1) % check_iters, best_mAP
 
 
-def validation_loop(model, criterion, device, dat_loader, histone_list=None, 
-                    dat_augment=False, return_preds=False):
+def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None, 
+                    histone_list=None, dat_augment=False, return_preds=False, 
+                    nb_batch=None):
     '''Model validation on an entire val set
     '''
     # assert(sequence_loader is not None or histone_loader is not None)
     # dat_loader = normalize_dat_loader(sequence_loader, histone_loader)
+    if not pred_only:
+        assert criterion is not None
     model.eval()  # set evaluation state.
     with torch.no_grad():
         t, s, p = [], [], []  # target, score, pred lists.
+        others = []  # info other than bin counts.
         total_loss = 0.0
-        for batch_dat in dat_loader:
-            dat_dict, label = normalize_dat_dict(
-                batch_dat, use_sequence=False, use_histone=True, 
-                dat_augment=dat_augment, device=device, 
-                histone_list=histone_list)
-            # scoring.
-            pscores = model(**dat_dict)
-            loss = criterion(pscores, label)
-            total_loss += loss.item()
-            _, preds = torch.max(pscores, 1)
-            # accumulate results.
-            p.append(preds.cpu().numpy())
-            s.append(pscores.cpu().numpy())
-            t.append(label.cpu().numpy())
-        predictions = np.concatenate(p)
-        scores = np.concatenate(s)
-        probs = np.exp(scores) # log(softmax)->prob.
-        nb_cls = scores.shape[1]
-        truevals = np.concatenate(t)
-        binvals = label_binarize(truevals, classes=list(range(nb_cls)))
-        try:
-            all_cls_ap = average_precision_score(binvals, probs, average=None)
-        except ValueError:
-            import pdb; pdb.set_trace()
-    if return_preds:
-        return total_loss/len(dat_loader), all_cls_ap, \
-            (truevals, predictions, probs)
-    return total_loss/len(dat_loader), all_cls_ap
-
-
-def prediction_loop(model, device, sequence_loader=None, 
-                    histone_loader=None, histone_list=None, 
-                    dat_augment=False, return_scores=False,
-                    nb_batch=None):
-    '''Make predictions on an entire dataset
-    Args:
-        nb_batch ([int]): #batches to predict. Default is None.
-            This is useful for debug.
-    '''
-    assert(sequence_loader is not None or histone_loader is not None)
-    dat_loader = normalize_dat_loader(sequence_loader, histone_loader)
-    model.eval()  # set evaluation state.
-    with torch.no_grad():
-        p, s, others = [], [], []
         for i, batch in enumerate(dat_loader):
-            if isinstance(batch, list):
+            if pred_only:
                 batch_dat, batch_info = batch[0], batch[1:]
-            dat_dict = normalize_dat_dict(
-                batch_dat, 
-                use_sequence=(sequence_loader is not None), 
-                use_histone=(histone_loader is not None), 
-                dat_augment=dat_augment, device=device, 
-                histone_list=histone_list, 
-                has_label=False)
+                dat_dict = normalize_dat_dict(
+                    batch_dat, use_sequence=False, use_histone=True, 
+                    dat_augment=dat_augment, device=device, 
+                    histone_list=histone_list, has_label=False)
+            else:
+                dat_dict, label = normalize_dat_dict(
+                    batch, use_sequence=False, use_histone=True, 
+                    dat_augment=dat_augment, device=device, 
+                    histone_list=histone_list, has_label=True)
             # scoring.
             pscores = model(**dat_dict)
-            _, preds = torch.max(pscores.data, 1)
+            _, preds = torch.max(pscores, 1)
+            if not pred_only:
+                loss = criterion(pscores, label)
+                total_loss += loss.item()
+                t.append(label.cpu().numpy())
+            else:
+                others.append(batch_info)
             # accumulate results.
             p.append(preds.cpu().numpy())
             s.append(pscores.cpu().numpy())
-            others.append(batch_info)
             if nb_batch is not None and (i+1) >= nb_batch:
                 break
         predictions = np.concatenate(p)
         scores = np.concatenate(s)
-        # transpose: batches x items -> items x batches.
-        others = list(map(list, list(zip(*others))))
-        info_list = [ np.concatenate(item_list) for item_list in others]
-        if return_scores:
-            return predictions, info_list, scores
-        return predictions, info_list
+        probs = np.exp(scores) # log(softmax)->prob.
+        if not pred_only:
+            nb_cls = scores.shape[1]
+            truevals = np.concatenate(t)
+            binvals = label_binarize(truevals, classes=list(range(nb_cls)))
+            try:
+                all_cls_ap = average_precision_score(binvals, probs, average=None)
+            except ValueError:
+                import pdb; pdb.set_trace()
+            if return_preds:
+                return total_loss/len(dat_loader), all_cls_ap, \
+                    (truevals, predictions, probs)
+            return total_loss/len(dat_loader), all_cls_ap
+        else:
+            assert len(others) == len(p)
+            # transpose: batches x items -> items x batches.
+            others = list(map(list, list(zip(*others))))
+            info_list = [ np.concatenate(item_list) for item_list in others]
+            return predictions, np.max(probs, axis=1), info_list
+
+
+
+
