@@ -126,7 +126,7 @@ def main():
             output_folder, 'histone_data', 'alltogether_notnormed.txt')
     print('Finished processing histones')
 
-    # # Compressing + indexing files for tensor creation
+    # Compressing + indexing files for tensor creation
     bed = BedTool(all_histone_data)
     bed.tabix(force=True, is_sorted=True)
     print('Finished compressing and indexing files')

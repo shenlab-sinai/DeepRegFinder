@@ -204,7 +204,8 @@ def process_genome_preds(preds, chroms, starts, maxprobs, ignore_labels=[4],
     return block_list
 
 
-def post_merge_blocks(block_list, window_width=100, number_of_windows=20):
+def post_merge_blocks(block_list, window_width=100, number_of_windows=20, 
+                      known_tss_file=None):
     '''Merge blocks with the same label and certain distance 
        cutoff into one block
     Returns: merged blocks as a BedTool object.
@@ -247,6 +248,13 @@ def post_merge_blocks(block_list, window_width=100, number_of_windows=20):
         )
         for name, ilist in block_dict.items()
     }
+    # remove known TSSs from predicted enhancers.
+    if known_tss_file is not None:
+        tss = BedTool(known_tss_file)
+        for name in bed_dict:
+            if name.endswith('Enh'):
+                bed_dict[name] = bed_dict[name].subtract(tss, A=True)
+
     return bed_dict
 
 

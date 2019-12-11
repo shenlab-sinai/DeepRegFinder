@@ -72,10 +72,12 @@ print('Prediction finished. Elapsed time: {:.1f}s.'.format(elapsed))
 # Post-process predictions and write the results.
 prob_conf_cutoff = dataMap['prob_conf_cutoff']
 output_bed = os.path.join(output_folder, dataMap['output_bed'])
+known_tss_file = dataMap['known_tss_file']
 wg_blocks = process_genome_preds(
     wg_preds, wg_info[0], wg_info[1], wg_maxprobs, ignore_labels=[4], 
     maxprob_cutoff=prob_conf_cutoff, nb_block=None)
-bed_dict = post_merge_blocks(wg_blocks, window_width, number_of_windows)
+bed_dict = post_merge_blocks(wg_blocks, window_width, number_of_windows, 
+                             known_tss_file=known_tss_file)
 
 # TPMs validation rate.
 tpms_file = dataMap['tpms_file']
@@ -88,7 +90,7 @@ for name in bed_dict:
     # TPMs by creation are away from TSS. We only consider enhancers here.
     if name.endswith('Enh'):
         bed = bed_dict[name]
-        tvr = len(bed.window(b=tpms, w=tpm_bps_added, u=True))/len(bed.saveas())
+        tvr = len(bed.window(b=tpms, w=tpm_bps_added, u=True))/len(bed)
         print('Validation rate for {}={:.3f}'.format(name, tvr))
         print('Validation rate for {}={:.3f}'.format(name, tvr), file=fh)
         tvr_list.append(tvr)
