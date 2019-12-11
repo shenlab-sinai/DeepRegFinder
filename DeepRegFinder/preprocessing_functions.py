@@ -30,7 +30,7 @@ def _bed_to_saf(bed_file, saf_file):
         with open(saf_file, 'w+') as saf:
             saf.write("GeneID\tChr\tStart\tEnd\tStrand\n" )
             for i, line in enumerate(bed):
-                words = line.split(sep = '\t')
+                words = line.split(sep='\t')
                 chrom = words[0]
                 start = str(int(words[1]) + 1)  # SAF is 1-based.
                 end = str(int(words[2]))
@@ -99,7 +99,7 @@ def process_groseq(saf_file, sense_bam_file, antisense_bam_file, output_folder,
 Removes tss, DHS, enhancer, and TFBS from genome to get possible background sites
 Saves this as final_bg.bed
 """
-def process_background(genome_windowed_bed, valids, tss_bed, DHS_bed, 
+def process_background(genome_windowed_bed, valids, enh_tss_bed, DHS_bed, 
                        p300_bed, tfbs_bed, enhancer_distal_num, genome, 
                        output_folder):
 
@@ -110,20 +110,20 @@ def process_background(genome_windowed_bed, valids, tss_bed, DHS_bed,
     # Read and filter genome windows and other lists.
     genome_windowed = BedTool(genome_windowed_bed).filter(
         lambda p: p.chrom in valids)
-    tss = BedTool(tss_bed).filter(lambda p: p.chrom in valids)
+    enh_tss = BedTool(enh_tss_bed).filter(lambda p: p.chrom in valids)
     DHS = BedTool(DHS_bed).filter(lambda p: p.chrom in valids)
     p300 = BedTool(p300_bed).filter(lambda p: p.chrom in valids)
     tfbs = BedTool(tfbs_bed).filter(lambda p: p.chrom in valids)
 
     # Expand all the regulatory elements by a large #bps to make 
     # the background windows "purer". 
-    tss = tss.slop(b=enhancer_distal_num, genome=genome)
+    # tss = tss.slop(b=enhancer_distal_num, genome=genome)
     DHS = DHS.slop(b=enhancer_distal_num, genome=genome)
     p300 = p300.slop(b=enhancer_distal_num, genome=genome)
     tfbs = tfbs.slop(b=enhancer_distal_num, genome=genome)
 
     # Subtracting TSS, DHS, p300 and TFBS.
-    bins_minus_T = genome_windowed.subtract(tss, A=True)
+    bins_minus_T = genome_windowed.subtract(enh_tss, A=True)
     bins_minus_TD = bins_minus_T.subtract(DHS, A=True)
     bins_minus_TDE = bins_minus_TD.subtract(p300, A=True)
     final_bg = bins_minus_TDE.subtract(tfbs, A=True)
@@ -150,12 +150,12 @@ def process_enhancers(p300_file, dhs_file, slopped_tss_file, gene_bodies_file,
     p300 = p300.intersect(b=slopped_dhs, u=True)
     # Read all the regions that need to subtract.
     slopped_tss = BedTool(slopped_tss_file).filter(lambda p: p.chrom in valids)
-    gene_bodies = BedTool(gene_bodies_file).filter(lambda p: p.chrom in valids)
+    # gene_bodies = BedTool(gene_bodies_file).filter(lambda p: p.chrom in valids)
     H3K4me3_peaks = BedTool(H3K4me3_file).filter(lambda p: p.chrom in valids)
     H3K4me3_slopped = H3K4me3_peaks.slop(b=distal_num, genome=genome)
     # Excluding genebodies, TSS and H3K4me3.
-    intergenic = p300.subtract(gene_bodies, A=True)
-    tss_distal_sites = intergenic.subtract(slopped_tss, A=True)
+    # intergenic = p300.subtract(gene_bodies, A=True)
+    tss_distal_sites = p300.subtract(slopped_tss, A=True)
     tss_histone_distal_sites = tss_distal_sites.subtract(H3K4me3_slopped, A=True)
     # Sorting and writing to BED and SAF files.
     sorted_sites = tss_histone_distal_sites.sort()
@@ -185,14 +185,14 @@ def process_genome(genome, valids, window_width, number_of_windows,
         os.mkdir(gene_out_folder)
 
     # Function to window genome by set width and save it.
-    def window_genome(window_width, filtered_save_name):
+    def window_genome(window_width_, filtered_save_name):
         if genome_size_file is not None:
             genome_windowed = BedTool().window_maker(g=genome_size_file, 
-                                                     w=window_width)
+                                                     w=window_width_)
             genome_windowed.saveas(filtered_save_name)
         else:
             genome_windowed = BedTool().window_maker(genome=genome, 
-                                                     w=window_width)
+                                                     w=window_width_)
             genome_windowed = genome_windowed.filter(lambda p: p.chrom in valids)
             genome_windowed.saveas(filtered_save_name)
 
@@ -268,6 +268,8 @@ def process_histones(genome_saf, histone_path, output_folder,
             pattern = "r*-bincounts_logtrans.txt"
         else:
             pattern = "r*-bincounts.txt"
+        print('Calculating average bincounts for histone: {}'.format(histone), 
+              end='...', flush=True)
         rep_cnt_list = []
         for rep in glob.glob(os.path.join(histone_folder, pattern)):
             df = pd.read_csv(rep, comment="#", delim_whitespace=True)
@@ -280,8 +282,12 @@ def process_histones(genome_saf, histone_path, output_folder,
         hist_df = pd.concat(rep_cnt_list, axis=1)
         avg_cnt = hist_df.mean(axis=1)
         hist_cnt_dict[histone + '_avg'] = avg_cnt
+        print('Done', flush=True)
+    print('Merging bincounts for histones into one dataframe', 
+          end='...', flush=True)
     hist_cnt_merged = pd.DataFrame(hist_cnt_dict)
     hist_cnt_df = pd.concat([bin_cols, hist_cnt_merged], axis=1)
+    print('Done', flush=True)
     if hist_logtrans:
         df_out_path = os.path.join(histone_out_folder, 
                                    "alltogether_notnormed_logtrans.txt")
@@ -338,8 +344,6 @@ def process_tpms(slopped_tss_file, p300_file, dhs_file, final_tfbs_file,
     tpms = tpms.cat(dhs, postmerge=True)
     tpms = tpms.cat(tfbs, postmerge=True)
     tpms.sort().saveas(os.path.join(tpms_out_folder, 'final_tpms.bed'))
-    # file_compress_name = file + '.gz'
-    # subprocess.call(['./index_file.sh', file, file_compress_name])
 
 
 '''
@@ -401,16 +405,16 @@ def process_tss(tss_file, dhs_file, set_genome, valids, enhancer_distal_num,
         os.path.join(tss_out_folder, 'enhancer_slopped_tss.bed'))
 
     # Overlap with DHS to find the true TSSs.
-    # import pdb; pdb.set_trace()
     tss_merged = tss_merged.each(midpoint)  # unslop.
     dhs = BedTool(dhs_file).filter(lambda p: p.chrom in valids)
     slopped_dhs = dhs.slop(b=distal_num, genome=set_genome)
     true_tss = tss_merged.intersect(b=slopped_dhs, u=True)
-    true_tss.saveas(os.path.join(tss_out_folder, 'true_tss_filtered.bed'))
+    true_tss = true_tss.saveas(
+        os.path.join(tss_out_folder, 'true_tss_filtered.bed'))
     slopped_tss = true_tss.slop(b=distal_num, genome=set_genome)
     slopped_tss.saveas(os.path.join(tss_out_folder, 'true_slopped_tss.bed'))
     _bed_to_saf(os.path.join(tss_out_folder, 'true_slopped_tss.bed'), 
-               os.path.join(tss_out_folder, 'true_slopped_tss.saf'))
+                os.path.join(tss_out_folder, 'true_slopped_tss.saf'))
     
         
 """
