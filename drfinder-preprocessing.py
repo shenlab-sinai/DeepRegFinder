@@ -103,13 +103,14 @@ def main():
     final_tfbs_file = os.path.join(output_folder, 'tfbs_data', 'final_tfbs.bed')
     
     # Background regions are genomic bins minus enhancers, TSS and DHS.
-    process_background(bg_genome, valids, slopped_tss, DHS_file, p300_file, 
+    process_background(bg_genome, valids, enhancer_slopped_tss, DHS_file, p300_file, 
                        final_tfbs_file, enhancer_distal_num, genome, 
                        output_folder)
     print('Finished processing background')
     final_background = os.path.join(output_folder, 'background_data', 'final_bg.bed')
 
-    # True positive markers are used to calculate validation rate after whole genome prediction.
+    # True positive markers are used to calculate validation rate after 
+    # whole genome prediction.
     process_tpms(slopped_tss, p300_file, DHS_file, final_tfbs_file, valids, 
                  output_folder)
     print('Finished processing True Positive Markers')
@@ -155,8 +156,10 @@ def main():
     print('Finished processing groseq')
   
     # Define active and poised enhancers and TSSs.
-    positive_enh, negative_enh = positive_negative_clustering(enh_sense_file, enh_antisense_file)
-    positive_tss, negative_tss = positive_negative_clustering(tss_sense_file, tss_antisense_file)
+    positive_enh, negative_enh = positive_negative_clustering(
+        enh_sense_file, enh_antisense_file)
+    positive_tss, negative_tss = positive_negative_clustering(
+        tss_sense_file, tss_antisense_file)
     
     make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss, 
                         enhancers, unslopped_tss, final_background, 
