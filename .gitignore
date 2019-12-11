@@ -5,6 +5,6 @@ __pycache__
 ._.DS_Store
 *.sublime-project
 *.sublime-workspace
-output
+output*
 data
 dump

@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
 
-__all__ = ['WholeGenomeDataset', 'process_genome_preds', 'post_merge_blocks']
+__all__ = ['WholeGenomeDataset', 'FastWholeGenomeDataset', 
+           'process_genome_preds', 'post_merge_blocks']
 
 
 class WholeGenomeDataset(Dataset):
@@ -15,7 +16,8 @@ class WholeGenomeDataset(Dataset):
     '''
 
     def __init__(self, wgbc_tsv, mean, std, norm=True, half_size=10):
-        self.wgbc_df = pd.read_table(wgbc_tsv, low_memory=True)
+        # self.wgbc_df = pd.read_table(wgbc_tsv, low_memory=True)
+        self.wgbc_df = pd.read_table(wgbc_tsv)
         # import pdb; pdb.set_trace()
         chroms = self.wgbc_df['#Chr'].unique().tolist()
         self.wgbc_df = self.wgbc_df.set_index('#Chr')
@@ -59,6 +61,65 @@ class WholeGenomeDataset(Dataset):
             bincnt = (bincnt - self.mean)/self.std
         # return start position according to the center of the data block.
         start = int(dat.iloc[self.half_size, 0]) - 1  # to 0-based position.
+        sample = (bincnt, chrom, start)
+        return sample
+
+class FastWholeGenomeDataset(Dataset):
+    '''Dataset for whole genome bin count data (40x faster)
+    pandas is slow. Storing all data as numpy array offers great speedup.
+    It takes care of converting a linear index into the index within a 
+    chromosome and the chromosome name. This avoids reading data across
+    the boundary between two chromosomes.
+    '''
+
+    def __init__(self, wgbc_tsv, mean, std, norm=True, half_size=10):
+        df = pd.read_table(wgbc_tsv)
+        chroms = df['#Chr'].unique().tolist()
+        df = df.set_index('#Chr')
+
+        # build a list for chromosome names and their accumulate lens.
+        chr_lens = [ df.loc[x].shape[0] - half_size*2 + 1 
+                     for x in chroms]
+        # remove zero or negative length chromosomes.
+        chroms_nz = [ chrom for i, chrom in enumerate(chroms) if chr_lens[i] > 0]
+        chr_lens_nz = [ clen for i, clen in enumerate(chr_lens) if clen > 0]
+        chr_alens = list(accumulate(chr_lens_nz))
+        chroms_nz.append('END')  # add an end point.
+        chr_alens.append(np.inf)
+        self.chr_name_alen = list(zip(chroms_nz, chr_alens))
+
+        # extract data into numpy arrays for fast retrieval.
+        self.chrom_dat_dict = {x: df.loc[x].values for x in chroms_nz[:-1]}
+        del df
+
+        # convert mean and std into column vectors.
+        self.mean, self.std = mean.reshape((-1, 1)), std.reshape((-1, 1))
+        self.norm = norm
+        self.half_size = half_size
+        
+    def _chr_name_idx(self, idx):
+        '''Convert a linear index into chromosome name and 
+           within chromosome index
+        '''
+        prev_alen = 0
+        for name, alen in self.chr_name_alen:
+            if idx < alen:
+                return name, idx - prev_alen
+            prev_alen = alen
+
+    def __len__(self):
+        return self.chr_name_alen[-2][1]
+  
+    def __getitem__(self, idx):
+        chrom, idx = self._chr_name_idx(idx)
+        idx = idx + self.half_size  # shift to the center.
+        dat = self.chrom_dat_dict[chrom][
+            idx - self.half_size : idx + self.half_size]
+        bincnt = dat[:, 2:].T  # channels x bins.
+        if self.norm:
+            bincnt = (bincnt - self.mean)/self.std
+        # return start position according to the center of the data block.
+        start = int(dat[self.half_size, 0]) - 1  # to 0-based position.
         sample = (bincnt, chrom, start)
         return sample
 
@@ -170,7 +231,7 @@ def post_merge_blocks(block_list, window_width=100, number_of_windows=20):
         strand = '.'
         tstart, tend = start, end
         rgb = rgb_lookup[pred]
-        six = (chrom, start, end, name, str(score), strand)
+        six = (chrom, start, end, name, str(round(score, 3)), strand)
         others = (str(tstart), str(tend), rgb)
         interval = Interval(*six, otherfields=others)
         if name in block_dict:

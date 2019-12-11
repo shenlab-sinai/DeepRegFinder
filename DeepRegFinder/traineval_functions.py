@@ -288,7 +288,7 @@ def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch,
 
 def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None, 
                     histone_list=None, dat_augment=False, return_preds=False, 
-                    nb_batch=None):
+                    nb_batch=None, show_status=False):
     '''Model validation on an entire val set
     '''
     # assert(sequence_loader is not None or histone_loader is not None)
@@ -300,6 +300,8 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
         t, s, p = [], [], []  # target, score, pred lists.
         others = []  # info other than bin counts.
         total_loss = 0.0
+        if show_status:
+            print('Start prediction (update for every 100 batches)', flush=True)
         for i, batch in enumerate(dat_loader):
             if pred_only:
                 batch_dat, batch_info = batch[0], batch[1:]
@@ -324,8 +326,12 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
             # accumulate results.
             p.append(preds.cpu().numpy())
             s.append(pscores.cpu().numpy())
+            if show_status and (i + 1) % 100 == 0:
+                print('.', end='', flush=True)
             if nb_batch is not None and (i+1) >= nb_batch:
                 break
+        if show_status:
+            print('Done', flush=True)
         predictions = np.concatenate(p)
         scores = np.concatenate(s)
         probs = np.exp(scores) # log(softmax)->prob.
