@@ -1,6 +1,7 @@
 # DeepRegFinder: *Deep* Learning based *Reg*ulatory Elements *Finder*
 by Li Shen, George Wangensteen, Sarah Kim
-Icahn School of Medicine at Mount Sinai
+
+Icahn School of Medicine at Mount Sinai, New York, NY, USA
 
 **DeepRegFinder** is a deep learning program used to identify transcriptional regulatory elements on the genome using histone mark ChIP-seq based on PyTorch. 
 
@@ -21,17 +22,17 @@ The pipeline has three modules: preprocessing, training and prediction. You shal
 ### Preprocessing:
 Fill out the configuration file: preprocessing_data.yaml and run this command:
 
-`drfinder-preprocessing.py preprocessing_data.yaml \<NAME OF OUTPUT FOLDER\>`
+`drfinder-preprocessing.py preprocessing_data.yaml <NAME OF OUTPUT FOLDER>`
 
 ### Training:
 Fill out the configuration file: training_data.yaml and run this command:
 
-`drfinder-training.py training_data.yaml \<NAME OF OUTPUT FOLDER\>`
+`drfinder-training.py training_data.yaml <NAME OF OUTPUT FOLDER>`
 
 ### Prediction:
 Fill out the configuration file: wg_prediction_data.yaml and run this command:
 
-`drfinder-prediction.py wg_prediction_data.yaml \<NAME OF OUTPUT FOLDER\>`
+`drfinder-prediction.py wg_prediction_data.yaml <NAME OF OUTPUT FOLDER>`
 
 ### Running time
 Approximate time to run the three modules (assume you have a not-too-old GPU and a multi-core CPU):
