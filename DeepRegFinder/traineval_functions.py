@@ -10,7 +10,8 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-np.seterr(divide='ignore', invalid='ignore')
+import sys
+# np.seterr(divide='ignore', invalid='ignore')
 
 """
 Collection of helper functions for validation and accuracy
@@ -339,8 +340,14 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
             binvals = label_binarize(truevals, classes=list(range(nb_cls)))
             try:
                 all_cls_ap = average_precision_score(binvals, probs, average=None)
-            except ValueError:
-                import pdb; pdb.set_trace()
+            except ValueError as err:
+                print('='*40)
+                print('NaN% in model outputs: {:.1f}'.format(
+                    np.isnan(probs).mean()*100), file=sys.stderr)
+                print('Model blow-up may have happened. Try to reduce '
+                      'learning rate.', file=sys.stderr)
+                print('='*10, 'System error below', '='*10)
+                raise err
             if return_preds:
                 return total_loss/len(dat_loader), all_cls_ap, \
                     (truevals, predictions, probs)
