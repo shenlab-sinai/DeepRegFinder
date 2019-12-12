@@ -15,11 +15,12 @@
 - add tensorboard for training monitor. DONE
 - understand why model outputs became NaNs. DONE
 - add learning rate scheduler. DONE
-- add weight initialization.
+- handle model blowup more gracefully. DONE
+- add weight initialization. DONE
+- tweak ConvNet: use larger 1st layer kernel size; DONE
 - evaluate KimNet.
 - add more H1 histone marks.
-- tweak ConvNet: use larger 1st layer kernel size;
-- handle model blowup more gracefully.
+- add an RNN model.
 
 ### Prediction
 - remove known TSSs from predicted enhancers (improved validation rate). DONE

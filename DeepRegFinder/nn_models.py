@@ -42,7 +42,7 @@ class ConvNet(nn.Module):
 
         self.layer_one = nn.Sequential(
             #in channels, out channels, kernel size
-            nn.Conv1d(marks, 32, 3, padding=1), 
+            nn.Conv1d(marks, 32, 7, padding=3), 
             nn.BatchNorm1d(32),
             nn.LeakyReLU() if use_leakyrelu else nn.ReLU(),
         )
@@ -95,12 +95,8 @@ class ConvNet(nn.Module):
 
 def init_weights(m):
     if isinstance(m, nn.Conv1d):
-        if m.weight.dim() >= 2:
-            nn.init.kaiming_uniform_(
-                m.weight.data, nonlinearity='leaky_relu', a=.01)
-        if m.bias.dim() >= 2:
-            nn.init.kaiming_uniform_(
-                m.bias.data, nonlinearity='leaky_relu', a=.01)
+        nn.init.kaiming_uniform_(m.weight.data, nonlinearity='relu')
+        nn.init.zeros_(m.bias.data)
 
 
 

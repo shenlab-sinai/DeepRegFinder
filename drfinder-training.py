@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from DeepRegFinder.traineval_functions import *
-from DeepRegFinder.nn_models import ConvNet
+from DeepRegFinder.nn_models import ConvNet, init_weights
 import torch
 import torch.nn as nn
 import numpy as np
@@ -73,6 +73,7 @@ summary_out_name = dataMap['summary_out_name']
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 model = ConvNet(marks=num_marks, nb_cls=num_classes, 
                 use_leakyrelu=False).to(device)
+model.apply(init_weights)
 criterion = nn.NLLLoss(reduction='mean').to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=init_lr)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
