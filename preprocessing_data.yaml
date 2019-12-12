@@ -12,7 +12,7 @@ valid_chromosomes: ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7',
                     'chrX', 'chr8', 'chr9', 'chr11', 'chr10', 'chr12', 'chr13',
                     'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr20', 
                     'chr19', 'chrY', 'chr22', 'chr21', 'chrM']
-
+# valid_chromosomes: ['chr22', 'chr21', 'chrM']
 # Path to tss file for clustering
 tss_file: 'data/gencode_v32_tss.bed'
 distal_bp_distance : 1000 # use to slop TSSs.
@@ -55,9 +55,10 @@ groseq_log_transformation: True #Whether you want to log transform the reads
 # Note: histone files must be of format xxx_repN.bam where N represents the rep number
 histone_folder : 'data/histones/'
 # nb_mark: 3 #number of histone marks
-histone_log_transformation: True #Whether you want to log transform the reads
+histone_log_transformation: False #Whether you want to log transform the reads
 bkg_samples: 100000 # #bkg-samples.
-nz_cutoff: 5 # #nonzero bins in a region; this cutoff is used to discard regions with low information content, mostly background regions.
+nz_cutoff: 5 # #nonzero bins in a region; this cutoff is used to discard 
+             # regions with low information content, mostly background regions.
 val_p: 0.2 # validation set proportion.
 test_p: 0.2 # test set proportion.
 

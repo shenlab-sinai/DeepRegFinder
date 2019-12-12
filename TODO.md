@@ -7,8 +7,22 @@
 - modify "process_genome" DONE
 - require TSS and enhancer to overlap with DHS. DONE
 - sample background using a fixed number instead of ratio. DONE
+- process histone bin counts without log transform and evaluate performance. (not using log trans is a little better) DONE
 - support for 3-way classification without using GRO-seq.
+- whereabout of sox2 and CBP in H1.
 
 ### Training
-- add weight initialization.
 - add tensorboard for training monitor. DONE
+- understand why model outputs became NaNs. DONE
+- add learning rate scheduler. DONE
+- add weight initialization.
+- evaluate KimNet.
+- add more H1 histone marks.
+- tweak ConvNet: use larger 1st layer kernel size;
+- handle model blowup more gracefully.
+
+### Prediction
+- remove known TSSs from predicted enhancers (improved validation rate). DONE
+
+
+

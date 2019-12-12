@@ -1,16 +1,19 @@
-whole_genome_bincnt_file: 'output/histone_data/alltogether_notnormed_logtrans.txt.gz'
-chann_stats_file: 'output/tensor_data/chann_stats.csv'
+whole_genome_bincnt_file: 'output2/histone_data/alltogether_notnormed.txt.gz'
+chann_stats_file: 'output2/tensor_data/chann_stats.csv'
 window_width: 100
 number_of_windows: 20
-batch_size: 1024
+batch_size: 10000
 num_classes: 5
-prob_conf_cutoff: 0.5
-cpu_threads: 6
+prob_conf_cutoff: 0.5  # output only prediction with prob above this cutoff.
+# cpu_threads: 1
 data_augment: False
+# known TSSs to subtract from predicted enhancers.
+known_tss_file: 'output2/tss_data/enhancer_slopped_tss.bed'
 # model state (parameters) from the training module.
-model_state_dict: 'output/model/best-mAP-model.pt'
+model_state_dict: 'output2/model/best-mAP-model.pt'
 output_bed: 'wg_preds.bed'
-tpms_file: 'output/tpms_data/final_tpms.bed'
+output_txt: 'pred_summary.txt'
+tpms_file: 'output2/tpms_data/final_tpms.bed'
 tpm_bps_added: 2500  # default from Kim et al.
 
 
