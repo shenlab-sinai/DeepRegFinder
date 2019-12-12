@@ -77,8 +77,9 @@ model = ConvNet(marks=num_marks, nb_cls=num_classes,
                 use_leakyrelu=False).to(device)
 criterion = nn.NLLLoss(reduction='mean').to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=init_lr)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
-    
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer, mode='max', factor=0.1, patience=5, verbose=True)
+
 # ==== initialization === #
 start_epoch = 0
 best_mAP = 0
@@ -91,7 +92,8 @@ for epoch in range(start_epoch, nb_epoch):
         model, criterion, optimizer, device, train_loss, best_mAP, epoch, 
         check_iters, train_loader, val_loader, best_model_path, 
         histone_list=None, dat_augment=dat_aug, writer=writer)
-    scheduler.step()
+    scheduler.step(best_mAP)
+
 # Evaluate the final model performance.
 if train_iter > 0:  # remaining iters not yet checked.
     avg_val_loss, val_ap = prediction_loop(
@@ -107,6 +109,7 @@ if train_iter > 0:  # remaining iters not yet checked.
         print(' --> best mAP updated; model saved.')
     else:
         print()
+
 # Evaluate on the test set.
 model.load_state_dict(torch.load(best_model_path))
 avg_test_loss, test_ap, test_preds = prediction_loop(
