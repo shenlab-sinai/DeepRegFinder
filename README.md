@@ -1,69 +1,43 @@
-## Preprocessing Pipeline:
-### To Run:
-Fill out input file: preprocessing_data.yaml
-In command line type:
-`python preprocessing.py preprocessing_data.yaml\<NAME OF OUTPUT FOLDER\>`
+# DeepRegFinder: *Deep* Learning based *Reg*ulatory Elements *Finder*
+by Li Shen, George Wangensteen, Sarah Kim
+Icahn School of Medicine at Mount Sinai
 
-Files necessary
--preprocessing.py
--preprocessing_data.yaml
--preprocessing_functions.py
--format_tss.sh
--index_file.sh
--log_transform.sh
--remove_header.sh
+**DeepRegFinder** is a deep learning program used to identify transcriptional regulatory elements on the genome using histone mark ChIP-seq based on PyTorch. 
 
+## Installation
+DeepRegFinder relies on Python 3 (>=3.6). First, download the project repository to your workstation. After all the dependencies have been installed, go to the project folder and run the following command:
 
+`pip install -e .`
 
-## Training/Net Pipeline:
-### To Run:
-#### Histone net:
-Fill out: histone_net_data.yaml
-In command line type:
-`python histone_net.py histone_net_data.yaml\<NAME OF OUTPUT FOLDER\>`
+The dependencies are listed in the `requirements.txt`. You may automatically install them by:
 
-Files necessary:
--histone_net.py
--histone_net_data.yaml
--nn_models.py
--net_functions.py
+`pip install -r requirements.txt`
 
-#### Sequence net: 
-Fill out: sequence_net_data.yaml
-In command line type:
-`python sequence_net.py sequence_net_data.yaml\<NAME OF OUTPUT FOLDER\>`
+Or, you can manually install them.
 
-Files necessary:
--sequence_net.py
--sequence_net_data.yaml
--nn_models.py
--net_functions.py
+## Running the pipeline
+The pipeline has three modules: preprocessing, training and prediction. You shall follow the three steps 1-by-1. The basic procedure for running each step is to first get all the required input files organized, fill out a configuration file and then run the corresponding program. You don't have to run the programs under the DeepRegFinder's repository because they shall already be in your PATH. You can go to your own project folder and issue commands from there. Use the configuration files in DeepRegFinder's repository as your starting points.
 
-#### Combined net:
-Fill out: combined_net_data.yaml
-In command line type:
-`python combined_net.py combined_net_data.yaml\<NAME OF OUTPUT FOLDER\>`
+### Preprocessing:
+Fill out the configuration file: preprocessing_data.yaml and run this command:
 
-Files necessary:
--combined_net.py
--combined_net_data.yaml
--nn_models.py
--net_functions.py
+`drfinder-preprocessing.py preprocessing_data.yaml \<NAME OF OUTPUT FOLDER\>`
 
+### Training:
+Fill out the configuration file: training_data.yaml and run this command:
 
+`drfinder-training.py training_data.yaml \<NAME OF OUTPUT FOLDER\>`
 
-## Prediction Pipeline:
-### To Run:
-Fill out: wg_prediction_data.yaml
-In command line type:
-`python wg_prediction.py wg_prediction_data.yaml\<NAME OF OUTPUT FOLDER\>`
+### Prediction:
+Fill out the configuration file: wg_prediction_data.yaml and run this command:
 
-Files necessary:
--wg_prediction.py
--wg_prediction_data.yaml
--wg_prediction_functions.py
--nn_models
--index_file.sh
+`drfinder-prediction.py wg_prediction_data.yaml \<NAME OF OUTPUT FOLDER\>`
+
+### Running time
+Approximate time to run the three modules (assume you have a not-too-old GPU and a multi-core CPU):
+- Preprocessing: 2h
+- Training: 5 min
+- Prediction: 20 min
 
 
 
