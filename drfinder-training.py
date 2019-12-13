@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from DeepRegFinder.traineval_functions import *
-from DeepRegFinder.nn_models import ConvNet, init_weights
+from DeepRegFinder.nn_models import *
 import torch
 import torch.nn as nn
 import numpy as np
@@ -54,11 +54,13 @@ val_loader = DataLoader(val_dataset, batch_size=batch_size,
                         num_workers=cpu_threads, drop_last=False)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, 
                          num_workers=cpu_threads, drop_last=False)
-num_marks = train_dataset[0][0].shape[0]
+num_marks, num_bins = train_dataset[0][0].shape
 num_classes = len(yu)
 
 # Other training related parameters.
+net_choice = dataMap['net_choice']
 init_lr = dataMap['init_lr']
+weight_decay = dataMap['weight_decay']
 dat_aug = dataMap['data_augment']
 best_model_name = dataMap['best_model_name']
 best_model_path = os.path.join(output_folder, best_model_name)
@@ -71,11 +73,16 @@ summary_out_name = dataMap['summary_out_name']
 
 # model, criterion, optimizer, etc.
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-model = ConvNet(marks=num_marks, nb_cls=num_classes, 
-                use_leakyrelu=False).to(device)
+if net_choice == 'ConvNet':
+    model = ConvNet(marks=num_marks, nb_cls=num_classes, 
+                    use_leakyrelu=False).to(device)
+elif net_choice == 'KimNet':
+    model = KimNet(bins=num_bins, marks=num_marks, 
+                   nb_cls=num_classes).to(device)
 model.apply(init_weights)
 criterion = nn.NLLLoss(reduction='mean').to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=init_lr)
+optimizer = torch.optim.Adam(model.parameters(), lr=init_lr, 
+                             weight_decay=weight_decay)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode='max', factor=0.1, patience=5, verbose=True)
 

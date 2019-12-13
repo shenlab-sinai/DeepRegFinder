@@ -345,7 +345,8 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
                 print('NaN% in model outputs: {:.1f}'.format(
                     np.isnan(probs).mean()*100), file=sys.stderr)
                 print('Model blow-up may have happened. Try to reduce '
-                      'learning rate.', file=sys.stderr)
+                      'learning rate or increase weight decay.', 
+                      file=sys.stderr)
                 print('='*10, 'System error below', '='*10)
                 raise err
             if return_preds:

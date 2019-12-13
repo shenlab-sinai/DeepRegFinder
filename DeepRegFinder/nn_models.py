@@ -3,36 +3,40 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
+
+__all__ = ['KimNet', 'ConvNet', 'init_weights']
+
 """
 Neural network models are defined here
 """
-
 class KimNet(nn.Module):
     """
     An implementation of the histone-mark based NN model from Kim: EP-DNN (2016)
-    Architecture is entirely feed-forward, with a 80-600-500-400-1 architecture.
+    Network is MLP, with a input-600-500-400-output architecture.
     """
-    def __init__(self, batchSz=100):
+    def __init__(self, bins=20, marks=3, nb_cls=5):
         super(KimNet, self).__init__()
-
+        self.bins = bins
+        self.marks = marks
         self.model = nn.Sequential(
-            nn.Linear(20, 600),
+            nn.Linear(bins*marks, 600),
             nn.Softplus(),
             nn.Linear(600, 500),
             nn.Softplus(),
-            #unclear in paper between which layers they do dropout so I 
-            # just did it here
-            nn.Dropout(),
             nn.Linear(500, 400),
             nn.Softplus(),
-            nn.Linear(400, 4)
+            nn.Dropout(0.5),
+            nn.Linear(400, nb_cls),
+            nn.Softmax(dim=1)
         )
 
-    #def forward(self, x):
     def forward(self, histone_forward, histone_reverse=None):
-        #print(histone_forward.shape)
-        o = self.model(histone_forward)
-        return torch.squeeze(o)
+        o = self.model(histone_forward.view((-1, self.bins*self.marks)))
+        if histone_reverse is not None:
+            o2 = self.model(histone_reverse.view((-1, self.bins*self.marks)))
+            o = torch.add(o, o2)
+            o = torch.div(o, 2)
+        return torch.log(o)
 
 
 class ConvNet(nn.Module):
@@ -97,6 +101,10 @@ def init_weights(m):
     if isinstance(m, nn.Conv1d):
         nn.init.kaiming_uniform_(m.weight.data, nonlinearity='relu')
         nn.init.zeros_(m.bias.data)
+    elif isinstance(m, nn.Linear):
+        nn.init.kaiming_normal_(m.weight.data, nonlinearity='relu')
+        nn.init.zeros_(m.bias.data)
+
 
 
 

@@ -1,5 +1,7 @@
 all_datasets: 'output2/tensor_data/all_datasets.pth.tar'
+net_choice: 'ConvNet'  # choose from [ConvNet, KimNet]
 init_lr: 0.01  # initial learning rate.
+weight_decay: 0
 batch_size: 256
 cpu_threads: 6
 data_augment: False
