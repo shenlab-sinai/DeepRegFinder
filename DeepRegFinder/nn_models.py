@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 
-__all__ = ['KimNet', 'ConvNet', 'init_weights']
+__all__ = ['KimNet', 'ConvNet', 'RecurNet', 'init_weights']
 
 """
 Neural network models are defined here
@@ -40,6 +40,9 @@ class KimNet(nn.Module):
 
 
 class ConvNet(nn.Module):
+    """
+    DeepRegFinder - 1D convolutional neural net
+    """
     def __init__(self, marks=3, nb_cls=5, use_leakyrelu=False):
         assert nb_cls > 1, 'output layer size must be at least 2.'
         super(ConvNet, self).__init__()
@@ -95,6 +98,32 @@ class ConvNet(nn.Module):
             o = torch.div(o, 2)
 
         return torch.squeeze(torch.log(o))
+
+
+class RecurNet(nn.Module):
+    """
+    DeepRegFinder - recurrent neural net
+    """
+    def __init__(self, marks=3, nb_cls=5, bins=20, use_all_seq=False, 
+                 bidirectional=False):
+        super(RecurNet, self).__init__()
+        self.bins = bins if use_all_seq else 1
+        self.rnn = nn.LSTM(marks, 32, num_layers=2, dropout=0.2, 
+                           batch_first=True, bidirectional=bidirectional)
+        self.hidden2clf = nn.Sequential(
+            nn.Linear(32*(2 if bidirectional else 1)*self.bins, nb_cls),
+            nn.LogSoftmax(dim=1)
+        )
+
+    def forward(self, histone_forward):
+        # histone_forward: (batch, mark, bin)
+        # input of shape (batch, seq, feature).
+        histone_forward = histone_forward.transpose(1, 2)
+        # output of shape (batch, seq_len, num_directions * hidden_size)
+        hidden, _ = self.rnn(histone_forward)
+        o = self.hidden2clf(
+            hidden[:, -self.bins:, :].reshape((hidden.shape[0], -1)))
+        return o
 
 
 def init_weights(m):

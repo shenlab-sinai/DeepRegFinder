@@ -18,9 +18,10 @@
 - handle model blowup more gracefully. DONE
 - add weight initialization. DONE
 - tweak ConvNet: use larger 1st layer kernel size; DONE
-- evaluate KimNet.
+- add an RNN model. DONE
+- evaluate KimNet. DONE
 - add more H1 histone marks.
-- add an RNN model.
+- add conv-lstm.
 
 ### Prediction
 - remove known TSSs from predicted enhancers (improved validation rate). DONE

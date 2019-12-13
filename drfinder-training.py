@@ -79,6 +79,11 @@ if net_choice == 'ConvNet':
 elif net_choice == 'KimNet':
     model = KimNet(bins=num_bins, marks=num_marks, 
                    nb_cls=num_classes).to(device)
+elif net_choice == 'RecurNet':
+    model = RecurNet(marks=num_marks, nb_cls=num_classes, bins=num_bins, 
+                     use_all_seq=False, bidirectional=False).to(device)
+else:
+    raise Exception('Undefined neural net name:', net_choice)
 model.apply(init_weights)
 criterion = nn.NLLLoss(reduction='mean').to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=init_lr, 

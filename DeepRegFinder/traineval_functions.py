@@ -282,6 +282,7 @@ def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch,
             else:
                 print()
             train_loss = .0
+            model.train()  # set training state.
     return train_loss, (i + 1) % check_iters, best_mAP
 
 
