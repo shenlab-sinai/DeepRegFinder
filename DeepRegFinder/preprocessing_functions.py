@@ -136,8 +136,8 @@ Define enhancers based on p300 peaks that are intergenic
 by a certain number of bps (default is 3Kb).
 Also creates a SAF file from this BED file of enhancers.
 """
-def process_enhancers(p300_file, dhs_file, slopped_tss_file, gene_bodies_file, 
-                      H3K4me3_file, distal_num, genome, valids, output_folder):
+def process_enhancers(p300_file, dhs_file, slopped_tss_file, H3K4me3_file, 
+                      distal_num, genome, valids, output_folder):
 
     enhancer_out_folder = os.path.join(output_folder, 'enhancer_data')
     if not os.path.exists(enhancer_out_folder):

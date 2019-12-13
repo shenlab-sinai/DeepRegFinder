@@ -47,7 +47,7 @@ def main():
     
     #Data for enhancer file creation 
     enhancer_distal_num = dataMap['enhancer_distal_bp_distance']
-    gene_bodies = dataMap['gene_bodies']
+    # gene_bodies = dataMap['gene_bodies']
     H3K4me3_file = dataMap['H3K4me3_file']
     
     #Data for TFBS file creation
@@ -91,7 +91,7 @@ def main():
     
     # Enhancers are defined as p300 peaks (narrow) that are away 
     # from potential TSSs.
-    process_enhancers(p300_file, DHS_file, enhancer_slopped_tss, gene_bodies, 
+    process_enhancers(p300_file, DHS_file, enhancer_slopped_tss, 
                       H3K4me3_file, distal_num, genome, valids, output_folder)
     print('Finished processing enhancers')
     enhancers = os.path.join(output_folder, 'enhancer_data', 'strict_enhancers_filtered.bed')
