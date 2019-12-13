@@ -20,8 +20,10 @@
 - tweak ConvNet: use larger 1st layer kernel size; DONE
 - add an RNN model. DONE
 - evaluate KimNet. DONE
+- add conv-lstm. DONE
 - add more H1 histone marks.
-- add conv-lstm.
+- class activation map.
+- visualize the 1st conv layer.
 
 ### Prediction
 - remove known TSSs from predicted enhancers (improved validation rate). DONE

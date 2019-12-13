@@ -104,25 +104,35 @@ class RecurNet(nn.Module):
     """
     DeepRegFinder - recurrent neural net
     """
-    def __init__(self, marks=3, nb_cls=5, bins=20, use_all_seq=False, 
-                 bidirectional=False):
+    def __init__(self, marks=3, nb_cls=5, add_conv=False, bidirectional=False):
         super(RecurNet, self).__init__()
-        self.bins = bins if use_all_seq else 1
-        self.rnn = nn.LSTM(marks, 32, num_layers=2, dropout=0.2, 
+        if add_conv:
+            self.conv_layer = nn.Sequential(
+                #in channels, out channels, kernel size
+                nn.Conv1d(marks, 32, 7, padding=3), 
+                nn.BatchNorm1d(32),
+                nn.ReLU(),
+            )
+            lstm_in_size = 32
+        else:
+            lstm_in_size = marks
+        self.add_conv = add_conv
+        self.rnn = nn.LSTM(lstm_in_size, 32, num_layers=2, dropout=0.2, 
                            batch_first=True, bidirectional=bidirectional)
         self.hidden2clf = nn.Sequential(
-            nn.Linear(32*(2 if bidirectional else 1)*self.bins, nb_cls),
+            nn.Linear(32*(2 if bidirectional else 1), nb_cls),
             nn.LogSoftmax(dim=1)
         )
 
     def forward(self, histone_forward):
+        if self.add_conv:
+            histone_forward = self.conv_layer(histone_forward)
         # histone_forward: (batch, mark, bin)
         # input of shape (batch, seq, feature).
         histone_forward = histone_forward.transpose(1, 2)
         # output of shape (batch, seq_len, num_directions * hidden_size)
         hidden, _ = self.rnn(histone_forward)
-        o = self.hidden2clf(
-            hidden[:, -self.bins:, :].reshape((hidden.shape[0], -1)))
+        o = self.hidden2clf(hidden[:, -1, :])
         return o
 
 

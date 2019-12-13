@@ -59,6 +59,7 @@ num_classes = len(yu)
 
 # Other training related parameters.
 net_choice = dataMap['net_choice']
+conv_rnn = dataMap['conv_rnn']
 init_lr = dataMap['init_lr']
 weight_decay = dataMap['weight_decay']
 dat_aug = dataMap['data_augment']
@@ -80,8 +81,8 @@ elif net_choice == 'KimNet':
     model = KimNet(bins=num_bins, marks=num_marks, 
                    nb_cls=num_classes).to(device)
 elif net_choice == 'RecurNet':
-    model = RecurNet(marks=num_marks, nb_cls=num_classes, bins=num_bins, 
-                     use_all_seq=False, bidirectional=False).to(device)
+    model = RecurNet(marks=num_marks, nb_cls=num_classes, add_conv=conv_rnn, 
+                     bidirectional=False).to(device)
 else:
     raise Exception('Undefined neural net name:', net_choice)
 model.apply(init_weights)
