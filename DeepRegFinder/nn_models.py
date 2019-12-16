@@ -145,6 +145,23 @@ def init_weights(m):
         nn.init.zeros_(m.bias.data)
 
 
+def create_model(net_choice, num_marks=3, num_classes=5, num_bins=20, 
+                 conv_rnn=False, device=None):
+    device = torch.device('cpu') if device is None else device
+    if net_choice == 'ConvNet':
+        model = ConvNet(marks=num_marks, nb_cls=num_classes, 
+                        use_leakyrelu=False).to(device)
+    elif net_choice == 'KimNet':
+        model = KimNet(bins=num_bins, marks=num_marks, 
+                       nb_cls=num_classes).to(device)
+    elif net_choice == 'RecurNet':
+        model = RecurNet(marks=num_marks, nb_cls=num_classes, add_conv=conv_rnn, 
+                         bidirectional=False).to(device)
+    else:
+        raise Exception('Undefined neural net name:', net_choice)
+    model.apply(init_weights)
+    return model
+
 
 
 

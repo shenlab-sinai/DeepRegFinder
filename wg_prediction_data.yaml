@@ -1,5 +1,7 @@
 whole_genome_bincnt_file: 'output2/histone_data/alltogether_notnormed.txt.gz'
 chann_stats_file: 'output2/tensor_data/chann_stats.csv'
+net_choice: 'RecurNet'  # shall be the same as training.
+conv_rnn: True  # shall be the same as training.
 window_width: 100
 number_of_windows: 20
 batch_size: 10000

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from DeepRegFinder.prediction_functions import *
 from DeepRegFinder.traineval_functions import prediction_loop
-from DeepRegFinder.nn_models import ConvNet
+from DeepRegFinder.nn_models import create_model
 import numpy as np 
 import pandas as pd
 import torch
@@ -54,11 +54,14 @@ num_marks = wgd[0][0].shape[0]  # 1st sample->bincnt->#chann.
 
 # Load saved model.
 num_classes = dataMap['num_classes']
+net_choice = dataMap['net_choice']
+conv_rnn = dataMap['conv_rnn']
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+model = create_model(net_choice, num_marks, num_classes, 
+                     num_bins=number_of_windows, conv_rnn=conv_rnn, 
+                     device=device)
 model_state_dict = dataMap['model_state_dict']
-model = ConvNet(marks=num_marks, nb_cls=num_classes, use_leakyrelu=False)
 model.load_state_dict(torch.load(model_state_dict, map_location=device))
-model = model.to(device)
 
 # Make predictions.
 data_augment = dataMap['data_augment']

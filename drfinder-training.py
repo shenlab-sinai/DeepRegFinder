@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from DeepRegFinder.traineval_functions import *
-from DeepRegFinder.nn_models import *
+from DeepRegFinder.nn_models import create_model
 import torch
 import torch.nn as nn
 import numpy as np
@@ -74,18 +74,8 @@ summary_out_name = dataMap['summary_out_name']
 
 # model, criterion, optimizer, etc.
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-if net_choice == 'ConvNet':
-    model = ConvNet(marks=num_marks, nb_cls=num_classes, 
-                    use_leakyrelu=False).to(device)
-elif net_choice == 'KimNet':
-    model = KimNet(bins=num_bins, marks=num_marks, 
-                   nb_cls=num_classes).to(device)
-elif net_choice == 'RecurNet':
-    model = RecurNet(marks=num_marks, nb_cls=num_classes, add_conv=conv_rnn, 
-                     bidirectional=False).to(device)
-else:
-    raise Exception('Undefined neural net name:', net_choice)
-model.apply(init_weights)
+model = create_model(net_choice, num_marks, num_classes, num_bins, 
+                     conv_rnn, device)
 criterion = nn.NLLLoss(reduction='mean').to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=init_lr, 
                              weight_decay=weight_decay)
