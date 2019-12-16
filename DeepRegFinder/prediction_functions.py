@@ -234,6 +234,8 @@ def post_merge_blocks(block_list, window_width=100, number_of_windows=20,
         rgb = rgb_lookup[pred]
         six = (chrom, start, end, name, str(round(score, 3)), strand)
         others = (str(tstart), str(tend), rgb)
+        # convert to byte strings to avoid TypeError.
+        others = [ o.encode('utf-8') for o in others]
         interval = Interval(*six, otherfields=others)
         if name in block_dict:
             block_dict[name].append(interval)
