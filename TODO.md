@@ -8,6 +8,7 @@
 - require TSS and enhancer to overlap with DHS. DONE
 - sample background using a fixed number instead of ratio. DONE
 - process histone bin counts without log transform and evaluate performance. (not using log trans is a little better) DONE
+- support for non-strand-specific GRO-seq.
 - support for 3-way classification without using GRO-seq.
 - whereabout of sox2 and CBP in H1.
 
