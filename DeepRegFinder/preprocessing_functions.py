@@ -62,8 +62,8 @@ def _norm_featcnt_file(file):
 Runs feature counts on all bam files in the active_poised folder
 Returns names of the files created after running featureCounts
 """
-def process_groseq(saf_file, sense_bam_file, antisense_bam_file, output_folder, 
-                   groseq_logtrans=False, cpu_threads=1):
+def process_groseq(saf_file, sense_bam_file, antisense_bam_file, groseq_bam_file, 
+                   output_folder, groseq_logtrans=False, cpu_threads=1):
     # import pdb; pdb.set_trace()
     groseq_out_folder = os.path.join(output_folder, 'groseq_data')
     if not os.path.exists(groseq_out_folder):
@@ -72,11 +72,13 @@ def process_groseq(saf_file, sense_bam_file, antisense_bam_file, output_folder,
     # Output file names.
     file_base = os.path.basename(saf_file)
     file_base = os.path.splitext(file_base)[0]
-    bam_files = [sense_bam_file, antisense_bam_file]
-    strands = ['_sense', '_antisense']
+    bam_files = [sense_bam_file, antisense_bam_file, groseq_bam_file]
+    strands = ['_sense', '_antisense', '']
     
     out_files = []
     for bam, strand in zip(bam_files, strands):
+        if bam is None:
+            continue
         out_name = os.path.join(
             groseq_out_folder, file_base + strand + "_bam-bincounts.txt")
         print('Running featureCounts: {} -> {}'.format(bam, saf_file), end='...')
@@ -424,7 +426,7 @@ procedure is done for sense and antisense counts separately. An enhancer
 is classified as active or poised only when both sense and antisense derived 
 class labels agree.
 """
-def positive_negative_clustering(sense_file, antisense_file):
+def positive_negative_clustering(sense_file, antisense_file, groseq_file=None):
     '''
     Two-way clustering using GRO-seq counts.
     '''
@@ -439,12 +441,16 @@ def positive_negative_clustering(sense_file, antisense_file):
             return 1 - clustering.labels_
         return clustering.labels_
 
-    sense_labels = binary_clustering(sense_file)
-    antisense_labels = binary_clustering(antisense_file)
-    positive_labs = np.logical_and(sense_labels, 
-                                   antisense_labels)
-    negative_labs = np.logical_and(np.logical_not(sense_labels), 
-                                   np.logical_not(antisense_labels))    
+    if sense_file is not None:
+        sense_labels = binary_clustering(sense_file)
+        antisense_labels = binary_clustering(antisense_file)
+        positive_labs = np.logical_and(sense_labels, 
+                                       antisense_labels)
+        negative_labs = np.logical_and(np.logical_not(sense_labels), 
+                                       np.logical_not(antisense_labels))
+    else:
+        positive_labs = binary_clustering(groseq_file)
+        negative_labs = np.logical_not(positive_labs)
     return positive_labs, negative_labs
 
 
