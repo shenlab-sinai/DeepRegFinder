@@ -8,9 +8,11 @@
 - require TSS and enhancer to overlap with DHS. DONE
 - sample background using a fixed number instead of ratio. DONE
 - process histone bin counts without log transform and evaluate performance. (not using log trans is a little better) DONE
-- support for non-strand-specific GRO-seq.
+- support for non-strand-specific GRO-seq. DONE
+- support for lack of TFBS. DONE
 - support for 3-way classification without using GRO-seq.
 - whereabout of sox2 and CBP in H1.
+- support for multiple enhancer markers.
 
 ### Training
 - add tensorboard for training monitor. DONE
@@ -22,7 +24,6 @@
 - add an RNN model. DONE
 - evaluate KimNet. DONE
 - add conv-lstm. DONE
-- add more H1 histone marks.
 - class activation map.
 - visualize the 1st conv layer.
 

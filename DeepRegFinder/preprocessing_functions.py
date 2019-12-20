@@ -340,11 +340,14 @@ def process_tpms(slopped_tss_file, p300_file, dhs_file, final_tfbs_file,
     dhs = BedTool(dhs_file).filter(lambda p: p.chrom in valids)
     p300 = p300.subtract(tss, A=True)
     dhs = dhs.subtract(tss, A=True)
-    tfbs = BedTool(final_tfbs_file)  # already filtered and subtracted.
+    if final_tfbs_file is not None:
+        tfbs = BedTool(final_tfbs_file)  # already filtered and subtracted.
+    else:
+        tfbs = None
     
     tpms = p300
     tpms = tpms.cat(dhs, postmerge=True)
-    tpms = tpms.cat(tfbs, postmerge=True)
+    tpms = tpms.cat(tfbs, postmerge=True) if tfbs is not None else tpms
     tpms.sort().saveas(os.path.join(tpms_out_folder, 'final_tpms.bed'))
 
 

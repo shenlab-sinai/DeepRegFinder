@@ -44,15 +44,17 @@ def main():
 
     #Peak data for DHS, tss, p300
     DHS_file, tss_file, p300_file = dataMap['DHS_file'], dataMap['tss_file'], dataMap['p300_file']
+    H3K4me3_file = dataMap['H3K4me3_file']
     
     #Data for enhancer file creation 
     enhancer_distal_num = dataMap['enhancer_distal_bp_distance']
-    # gene_bodies = dataMap['gene_bodies']
-    H3K4me3_file = dataMap['H3K4me3_file']
+    distal_num = dataMap['distal_bp_distance']
     
     #Data for TFBS file creation
-    distal_num = dataMap['distal_bp_distance']
-    TFBS = dataMap['TFBS']
+    try:
+        TFBS = dataMap['TFBS']
+    except KeyError:
+        TFBS = None
     
     #Data for active poised clustering
     try:
@@ -105,10 +107,13 @@ def main():
     enhancers_saf = os.path.join(output_folder, 'enhancer_data', 'strict_slopped_enh.saf')
     
     # TFBS.
-    process_tfbs(slopped_tss, TFBS, valids, output_folder)
-    print('Finished processing TFBS')
-    final_tfbs_file = os.path.join(output_folder, 'tfbs_data', 'final_tfbs.bed')
-    
+    if TFBS is not None:
+        process_tfbs(slopped_tss, TFBS, valids, output_folder)
+        print('Finished processing TFBS')
+        final_tfbs_file = os.path.join(output_folder, 'tfbs_data', 'final_tfbs.bed')
+    else:
+        final_tfbs_file = None
+            
     # Background regions are genomic bins minus enhancers, TSS and DHS.
     process_background(bg_genome, valids, enhancer_slopped_tss, DHS_file, p300_file, 
                        final_tfbs_file, enhancer_distal_num, genome, 

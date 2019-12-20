@@ -32,9 +32,10 @@ DHS_file: 'example_dat/peak_lists/h1-dnase-seq-peaks.bed'
 p300_file: 'example_dat/peak_lists/h1-p300-narrowpeaks.bed'
 
 # Transcription factor binding site files
-# Consider: Sox2 and CBP.
-# Nanog, Oct4 and Sox2 are stem cell specific transcription factors.
-# CBP is known to be an enhancer binding activator, like p300.
+# These shall be the peak lists for the TFs that you believe to be enhancer
+# related. In H1 stem cells, Nanog, Oct4 and Sox2 are the master regulators
+# that are considered to regulate enhancers.
+# If there are no TFBS files, just comment the following lines.
 TFBS:
  - 'example_dat/tfbs/nanog.bed'
  - 'example_dat/tfbs/oct4.bed'
