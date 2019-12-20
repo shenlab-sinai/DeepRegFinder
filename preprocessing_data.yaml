@@ -28,8 +28,10 @@ H3K4me3_file: 'example_dat/peak_lists/h1-h3k4me3-peaks.bed'
 # Path to DHS (or any other DNA accessibility) file
 DHS_file: 'example_dat/peak_lists/h1-dnase-seq-peaks.bed'
 
-# Path to p300 file
-p300_file: 'example_dat/peak_lists/h1-p300-narrowpeaks.bed'
+# Path to enhancer peak files. You can use more than one peak lists, such as 
+# both p300 and CBP to define enhancers.
+enhancer_files:
+ - 'example_dat/peak_lists/h1-p300-narrowpeaks.bed'
 
 # Transcription factor binding site files
 # These shall be the peak lists for the TFs that you believe to be enhancer

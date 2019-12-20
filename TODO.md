@@ -1,8 +1,8 @@
 ### Preprocessing
 - reduce file size by using gzipped bed and saf. NOT DO
+- change "enhancer_slopped" to "more_slopped". NOT DO
 - add #threads for featureCounts. DONE
 - parallelize build_histone_tensors. USED MERGE INSTEAD. DONE
-- change "enhancer_slopped" to "more_slopped". NOT DO
 - use "__all__" to define what to import. DONE
 - modify "process_genome" DONE
 - require TSS and enhancer to overlap with DHS. DONE
@@ -10,9 +10,9 @@
 - process histone bin counts without log transform and evaluate performance. (not using log trans is a little better) DONE
 - support for non-strand-specific GRO-seq. DONE
 - support for lack of TFBS. DONE
+- support for multiple enhancer markers. DONE
 - support for 3-way classification without using GRO-seq.
 - whereabout of sox2 and CBP in H1.
-- support for multiple enhancer markers.
 
 ### Training
 - add tensorboard for training monitor. DONE

@@ -102,7 +102,7 @@ Removes tss, DHS, enhancer, and TFBS from genome to get possible background site
 Saves this as final_bg.bed
 """
 def process_background(genome_windowed_bed, valids, enh_tss_bed, DHS_bed, 
-                       p300_bed, tfbs_bed, enhancer_distal_num, genome, 
+                       merged_enh_bed, tfbs_bed, enhancer_distal_num, genome, 
                        output_folder):
 
     bg_out_folder = os.path.join(output_folder, 'background_data')
@@ -114,50 +114,60 @@ def process_background(genome_windowed_bed, valids, enh_tss_bed, DHS_bed,
         lambda p: p.chrom in valids)
     enh_tss = BedTool(enh_tss_bed).filter(lambda p: p.chrom in valids)
     DHS = BedTool(DHS_bed).filter(lambda p: p.chrom in valids)
-    p300 = BedTool(p300_bed).filter(lambda p: p.chrom in valids)
-    tfbs = BedTool(tfbs_bed).filter(lambda p: p.chrom in valids)
+    merged_enh = BedTool(merged_enh_bed).filter(lambda p: p.chrom in valids)
+    tfbs = (BedTool(tfbs_bed).filter(lambda p: p.chrom in valids) 
+            if tfbs_bed is not None else None)
 
     # Expand all the regulatory elements by a large #bps to make 
     # the background windows "purer". 
     # tss = tss.slop(b=enhancer_distal_num, genome=genome)
     DHS = DHS.slop(b=enhancer_distal_num, genome=genome)
-    p300 = p300.slop(b=enhancer_distal_num, genome=genome)
-    tfbs = tfbs.slop(b=enhancer_distal_num, genome=genome)
+    merged_enh = merged_enh.slop(b=enhancer_distal_num, genome=genome)
+    tfbs = (tfbs.slop(b=enhancer_distal_num, genome=genome) 
+            if tfbs is not None else None)
 
-    # Subtracting TSS, DHS, p300 and TFBS.
+    # Subtracting TSS, DHS, merged_enh and TFBS.
     bins_minus_T = genome_windowed.subtract(enh_tss, A=True)
     bins_minus_TD = bins_minus_T.subtract(DHS, A=True)
-    bins_minus_TDE = bins_minus_TD.subtract(p300, A=True)
-    final_bg = bins_minus_TDE.subtract(tfbs, A=True)
+    bins_minus_TDE = bins_minus_TD.subtract(merged_enh, A=True)
+    final_bg = (bins_minus_TDE.subtract(tfbs, A=True) 
+                if tfbs is not None else bins_minus_TDE)
     final_bg.saveas(os.path.join(bg_out_folder, 'final_bg.bed'))
     # import pdb; pdb.set_trace()
 
 """
-Define enhancers based on p300 peaks that are intergenic 
+Define enhancers based on p300/CBP/etc. peaks that are intergenic 
 (excluding genebodies) and away from TSS and H3K4me3 peaks 
 by a certain number of bps (default is 3Kb).
 Also creates a SAF file from this BED file of enhancers.
 """
-def process_enhancers(p300_file, dhs_file, slopped_tss_file, H3K4me3_file, 
+def process_enhancers(enhancer_files, dhs_file, slopped_tss_file, H3K4me3_file, 
                       distal_num, genome, valids, output_folder):
 
     enhancer_out_folder = os.path.join(output_folder, 'enhancer_data')
     if not os.path.exists(enhancer_out_folder):
         os.mkdir(enhancer_out_folder)
 
-    # Read p300 and overlap with DHS.
-    p300 = BedTool(p300_file).filter(lambda p: p.chrom in valids)
+    # Read and merge all enhancer peaks and overlap with DHS.
+    for i, bed in enumerate(enhancer_files):
+        enh = BedTool(bed).filter(lambda p: p.chrom in valids)
+        if i == 0:
+            merged_enh = enh
+        else:
+            merged_enh = merged_enh.cat(enh, postmerge=True)
+    merged_enh = merged_enh.saveas(os.path.join(enhancer_out_folder, 
+                                                'merged_enh.bed'))
     dhs = BedTool(dhs_file).filter(lambda p: p.chrom in valids)
     slopped_dhs = dhs.slop(b=distal_num, genome=genome)
-    p300 = p300.intersect(b=slopped_dhs, u=True)
+    merged_enh = merged_enh.intersect(b=slopped_dhs, u=True)
     # Read all the regions that need to subtract.
     slopped_tss = BedTool(slopped_tss_file).filter(lambda p: p.chrom in valids)
     # gene_bodies = BedTool(gene_bodies_file).filter(lambda p: p.chrom in valids)
     H3K4me3_peaks = BedTool(H3K4me3_file).filter(lambda p: p.chrom in valids)
     H3K4me3_slopped = H3K4me3_peaks.slop(b=distal_num, genome=genome)
     # Excluding genebodies, TSS and H3K4me3.
-    # intergenic = p300.subtract(gene_bodies, A=True)
-    tss_distal_sites = p300.subtract(slopped_tss, A=True)
+    # intergenic = merged_enh.subtract(gene_bodies, A=True)
+    tss_distal_sites = merged_enh.subtract(slopped_tss, A=True)
     tss_histone_distal_sites = tss_distal_sites.subtract(H3K4me3_slopped, A=True)
     # Sorting and writing to BED and SAF files.
     sorted_sites = tss_histone_distal_sites.sort()
@@ -328,7 +338,7 @@ def process_tfbs(slopped_tss, TFBS, valids, output_folder):
 Creating TPMs file by getting rid of TPMs that are not distal to tss
 Merge TPMs and save as final_tpms.bed
 """
-def process_tpms(slopped_tss_file, p300_file, dhs_file, final_tfbs_file, 
+def process_tpms(slopped_tss_file, merged_enh_file, dhs_file, final_tfbs_file, 
                  valids, output_folder):
 
     tpms_out_folder = os.path.join(output_folder, 'tpms_data')
@@ -336,16 +346,16 @@ def process_tpms(slopped_tss_file, p300_file, dhs_file, final_tfbs_file,
         os.mkdir(tpms_out_folder)
         
     tss = BedTool(slopped_tss_file)
-    p300 = BedTool(p300_file).filter(lambda p: p.chrom in valids)
+    merged_enh = BedTool(merged_enh_file).filter(lambda p: p.chrom in valids)
     dhs = BedTool(dhs_file).filter(lambda p: p.chrom in valids)
-    p300 = p300.subtract(tss, A=True)
+    merged_enh = merged_enh.subtract(tss, A=True)
     dhs = dhs.subtract(tss, A=True)
     if final_tfbs_file is not None:
         tfbs = BedTool(final_tfbs_file)  # already filtered and subtracted.
     else:
         tfbs = None
     
-    tpms = p300
+    tpms = merged_enh
     tpms = tpms.cat(dhs, postmerge=True)
     tpms = tpms.cat(tfbs, postmerge=True) if tfbs is not None else tpms
     tpms.sort().saveas(os.path.join(tpms_out_folder, 'final_tpms.bed'))

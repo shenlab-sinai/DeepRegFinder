@@ -42,14 +42,18 @@ def main():
     window_width = dataMap['window_width']
     number_of_windows = dataMap['number_of_windows']
 
-    #Peak data for DHS, tss, p300
-    DHS_file, tss_file, p300_file = dataMap['DHS_file'], dataMap['tss_file'], dataMap['p300_file']
-    H3K4me3_file = dataMap['H3K4me3_file']
-    
-    #Data for enhancer file creation 
-    enhancer_distal_num = dataMap['enhancer_distal_bp_distance']
+    # Promoter files.
+    tss_file = dataMap['tss_file']
     distal_num = dataMap['distal_bp_distance']
-    
+    H3K4me3_file = dataMap['H3K4me3_file']
+
+    # Enhancer files.
+    enhancer_files = dataMap['enhancer_files']
+    enhancer_distal_num = dataMap['enhancer_distal_bp_distance']
+
+    # DNA accessibility.
+    DHS_file = dataMap['DHS_file']
+        
     #Data for TFBS file creation
     try:
         TFBS = dataMap['TFBS']
@@ -98,13 +102,14 @@ def main():
     slopped_tss = os.path.join(output_folder, 'tss_data', 'true_slopped_tss.bed')
     slopped_tss_saf = os.path.join(output_folder, 'tss_data', 'true_slopped_tss.saf')
     
-    # Enhancers are defined as p300 peaks (narrow) that are away 
+    # Enhancers are defined as p300/CBP/etc. peaks (narrow) that are away 
     # from potential TSSs.
-    process_enhancers(p300_file, DHS_file, enhancer_slopped_tss, 
+    process_enhancers(enhancer_files, DHS_file, enhancer_slopped_tss, 
                       H3K4me3_file, distal_num, genome, valids, output_folder)
     print('Finished processing enhancers')
     enhancers = os.path.join(output_folder, 'enhancer_data', 'strict_enhancers_filtered.bed')
     enhancers_saf = os.path.join(output_folder, 'enhancer_data', 'strict_slopped_enh.saf')
+    merged_enh_file = os.path.join(output_folder, 'enhancer_data', 'merged_enh.bed')
     
     # TFBS.
     if TFBS is not None:
@@ -113,18 +118,18 @@ def main():
         final_tfbs_file = os.path.join(output_folder, 'tfbs_data', 'final_tfbs.bed')
     else:
         final_tfbs_file = None
-            
+
     # Background regions are genomic bins minus enhancers, TSS and DHS.
-    process_background(bg_genome, valids, enhancer_slopped_tss, DHS_file, p300_file, 
-                       final_tfbs_file, enhancer_distal_num, genome, 
-                       output_folder)
+    process_background(bg_genome, valids, enhancer_slopped_tss, DHS_file, 
+                       merged_enh_file, final_tfbs_file, enhancer_distal_num, 
+                       genome, output_folder)
     print('Finished processing background')
     final_background = os.path.join(output_folder, 'background_data', 'final_bg.bed')
 
     # True positive markers are used to calculate validation rate after 
     # whole genome prediction.
-    process_tpms(slopped_tss, p300_file, DHS_file, final_tfbs_file, valids, 
-                 output_folder)
+    process_tpms(slopped_tss, merged_enh_file, DHS_file, final_tfbs_file, 
+                 valids, output_folder)
     print('Finished processing True Positive Markers')
 
     # Get histone mark counts for the above defined regions.
