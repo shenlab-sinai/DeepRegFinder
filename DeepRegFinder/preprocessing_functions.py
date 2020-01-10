@@ -235,12 +235,13 @@ def process_histones(genome_saf, histone_path, output_folder,
         os.mkdir(histone_out_folder)
     
     # Looping through every histone folder and running featureCounts on each rep
-    out_files = []
+    out_files, histone_list = [], []
     for histone in os.listdir(histone_path):
         histone_folder = os.path.join(histone_path, histone)
         if not os.path.isdir(histone_folder):
             continue
         out_path = os.path.join(histone_out_folder, histone)
+        histone_list.append(histone)
         if not os.path.exists(out_path):
             os.mkdir(out_path)
         # Looping through each rep.
@@ -272,10 +273,10 @@ def process_histones(genome_saf, histone_path, output_folder,
     # them into a dataframe.
     hist_cnt_dict = {}
     bin_cols = None
-    for histone in os.listdir(histone_out_folder):
+    for histone in sorted(histone_list):
         histone_folder = os.path.join(histone_out_folder, histone)
-        if not os.path.isdir(histone_folder):
-            continue
+        # if not os.path.isdir(histone_folder):
+        #     continue
         if hist_logtrans:
             pattern = "r*-bincounts_logtrans.txt"
         else:
