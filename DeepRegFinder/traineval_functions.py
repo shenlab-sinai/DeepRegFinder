@@ -239,15 +239,13 @@ def normalize_dat_dict(batch_data, use_sequence, use_histone,
     return dat_dict
 
 
-def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch, 
-               check_iters, train_loader, val_loader, best_model_path, 
-               histone_list=None, dat_augment=False, writer=None):
+def train_loop(model, criterion, optimizer, scheduler, device, train_loss, 
+               best_mAP, epoch, check_iters, train_loader, val_loader, 
+               best_model_path, checkpoint_path, histone_list=None, 
+               dat_augment=False, writer=None):
     '''Model training for an epoch
     '''
-    # assert(sequence_loader is not None or histone_loader is not None)
-    # dat_loader = normalize_dat_loader(sequence_loader, histone_loader)
     start_iter = epoch*len(train_loader)
-    # total_loss = 0.0
     model.train()  # set training state.
     for i, batch_dat in enumerate(train_loader):
         optimizer.zero_grad()
@@ -263,24 +261,48 @@ def train_loop(model, criterion, optimizer, device, train_loss, best_mAP, epoch,
         train_loss += loss.item()
         nb_iter = start_iter + i + 1
         if nb_iter % check_iters == 0:
-            avg_val_loss, val_ap = prediction_loop(
-                model, device, val_loader, criterion=criterion, 
-                histone_list=histone_list, dat_augment=dat_augment)
-            val_mAP = np.mean(val_ap[:-1])  # ignore background class.
-            avg_train_loss = train_loss/check_iters
-            print('Iter={}, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
-                  '{:.3f}'.format(nb_iter, avg_train_loss, 
-                                  avg_val_loss, val_mAP), end='')
-            if writer is not None:  # tensorboard logging.
-                writer.add_scalar('Loss/train', avg_train_loss, nb_iter)
-                writer.add_scalar('Loss/val', avg_val_loss, nb_iter)
-                writer.add_scalar('mAP/val', val_mAP, nb_iter)
-            if val_mAP > best_mAP:
-                best_mAP = val_mAP
-                torch.save(model.state_dict(), best_model_path)
-                print(' --> best mAP updated; model saved.')
-            else:
-                print()
+            try: 
+                avg_val_loss, val_ap = prediction_loop(
+                    model, device, val_loader, criterion=criterion, 
+                    histone_list=histone_list, dat_augment=dat_augment)
+                val_mAP = np.mean(val_ap[:-1])  # ignore background class.
+                avg_train_loss = train_loss/check_iters
+                print('Iter={}, avg train loss: {:.3f}; val loss: {:.3f}, '
+                      'val mAP: {:.3f}'.format(nb_iter, avg_train_loss, 
+                                               avg_val_loss, val_mAP), end='')
+                if writer is not None:  # tensorboard logging.
+                    writer.add_scalar('Loss/train', avg_train_loss, nb_iter)
+                    writer.add_scalar('Loss/val', avg_val_loss, nb_iter)
+                    writer.add_scalar('mAP/val', val_mAP, nb_iter)
+                torch.save({'model_state_dict': model.state_dict(), 
+                            'optimizer_state_dict': optimizer.state_dict(), 
+                            'scheduler_state_dict': scheduler.state_dict()}, 
+                           checkpoint_path)  # save model checkpoint.
+                if val_mAP > best_mAP:
+                    best_mAP = val_mAP
+                    torch.save(model.state_dict(), best_model_path)
+                    print(' --> best mAP updated; model saved.')
+                else:
+                    print()
+            except ValueError:  # exploding gradients.
+                print('Trying to recover model state from a previously '
+                      'saved state...', end='')
+                try:
+                    checkpoint = torch.load(checkpoint_path)
+                    model.load_state_dict(checkpoint['model_state_dict'])
+                    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                    print('loaded.', flush=True)
+                except FileNotFoundError as err:
+                    print('no previously saved state to load.', flush=True)
+                    print('Try to manually reduce learning rate and rerun '
+                          'training. Exit now.')
+                    raise err
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] *= .1
+                    print('Reduced learning rate to: {}.'.format(
+                        param_group['lr']))
+                # import pdb; pdb.set_trace()
             train_loss = .0
             model.train()  # set training state.
     return train_loss, (i + 1) % check_iters, best_mAP
@@ -348,7 +370,8 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
                 print('Model blow-up may have happened. Try to reduce '
                       'learning rate or increase weight decay.', 
                       file=sys.stderr)
-                print('='*10, 'System error below', '='*10)
+                # import pdb; pdb.set_trace()
+                # print('='*10, 'System error below', '='*10)
                 raise err
             if return_preds:
                 return total_loss/len(dat_loader), all_cls_ap, \

@@ -2,7 +2,7 @@ all_datasets: 'output/tensor_data/all_datasets.pth.tar'
 net_choice: 'RecurNet'  # choose from [ConvNet, KimNet, RecurNet]
 conv_rnn: True
 init_lr: 0.01  # initial learning rate.
-weight_decay: 0
+weight_decay: 0.0001
 batch_size: 256
 cpu_threads: 6
 data_augment: False

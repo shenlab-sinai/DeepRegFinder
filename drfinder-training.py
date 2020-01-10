@@ -65,6 +65,7 @@ weight_decay = dataMap['weight_decay']
 dat_aug = dataMap['data_augment']
 best_model_name = dataMap['best_model_name']
 best_model_path = os.path.join(output_folder, best_model_name)
+checkpoint_path = os.path.join(output_folder, 'model_checkpoint.pth.tar')
 nb_epoch = dataMap['num_epochs']
 check_iters = dataMap['check_iters']
 train_logs = os.path.join(output_folder, 'train_logs')
@@ -77,8 +78,13 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 model = create_model(net_choice, num_marks, num_classes, num_bins, 
                      conv_rnn, device)
 criterion = nn.NLLLoss(reduction='mean').to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=init_lr, 
-                             weight_decay=weight_decay)
+if net_choice == 'KimNet':
+    # Use momentum=0.9 will make KimNet more likely to blow. 
+    optimizer = torch.optim.SGD(model.parameters(), lr=init_lr, 
+                                weight_decay=weight_decay, momentum=0)
+else:
+    optimizer = torch.optim.Adam(model.parameters(), lr=init_lr, 
+                                 weight_decay=weight_decay)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode='max', factor=0.1, patience=5, verbose=True)
 
@@ -91,8 +97,8 @@ writer = SummaryWriter(train_logs)
 for epoch in range(start_epoch, nb_epoch):
     # print('Epoch {}'.format(epoch + 1))
     train_loss, train_iter, best_mAP = train_loop(
-        model, criterion, optimizer, device, train_loss, best_mAP, epoch, 
-        check_iters, train_loader, val_loader, best_model_path, 
+        model, criterion, optimizer, scheduler, device, train_loss, best_mAP, epoch, 
+        check_iters, train_loader, val_loader, best_model_path, checkpoint_path, 
         histone_list=None, dat_augment=dat_aug, writer=writer)
     scheduler.step(best_mAP)
 
