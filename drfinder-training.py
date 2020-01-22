@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from DeepRegFinder.traineval_functions import *
-from DeepRegFinder.nn_models import create_model
+from DeepRegFinder.nn_models import create_model, EMAModelWeights
 import torch
 import torch.nn as nn
 import numpy as np
@@ -77,6 +77,9 @@ summary_out_name = dataMap['summary_out_name']
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 model = create_model(net_choice, num_marks, num_classes, num_bins, 
                      conv_rnn, device)
+# Exponential moving average of model weights.
+ema = EMAModelWeights(model, 0.99)
+ema.register()
 criterion = nn.NLLLoss(reduction='mean').to(device)
 if net_choice == 'KimNet':
     # Use momentum=0.9 will make KimNet more likely to blow. 
@@ -97,16 +100,18 @@ writer = SummaryWriter(train_logs)
 for epoch in range(start_epoch, nb_epoch):
     # print('Epoch {}'.format(epoch + 1))
     train_loss, train_iter, best_mAP = train_loop(
-        model, criterion, optimizer, scheduler, device, train_loss, best_mAP, epoch, 
-        check_iters, train_loader, val_loader, best_model_path, checkpoint_path, 
-        histone_list=None, dat_augment=dat_aug, writer=writer)
+        model, ema, criterion, optimizer, scheduler, device, train_loss, 
+        best_mAP, epoch, check_iters, train_loader, val_loader, best_model_path, 
+        checkpoint_path, histone_list=None, dat_augment=dat_aug, writer=writer)
     scheduler.step(best_mAP)
 
 # Evaluate the final model performance.
 if train_iter > 0:  # remaining iters not yet checked.
+    ema.apply_shadow()
     avg_val_loss, val_ap = prediction_loop(
         model, device, val_loader, criterion=criterion, 
         histone_list=None, dat_augment=dat_aug)
+    ema.restore()
     val_mAP = np.mean(val_ap[:-1])
     print('Finally, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
           '{:.3f}'.format(train_loss/train_iter, avg_val_loss, val_mAP), 

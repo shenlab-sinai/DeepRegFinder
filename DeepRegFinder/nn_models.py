@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
+from copy import deepcopy
 
 __all__ = ['KimNet', 'ConvNet', 'RecurNet', 'init_weights']
 
@@ -161,6 +162,45 @@ def create_model(net_choice, num_marks=3, num_classes=5, num_bins=20,
         raise Exception('Undefined neural net name:', net_choice)
     model.apply(init_weights)
     return model
+
+
+class EMAModelWeights():
+    def __init__(self, model, decay=0.99):
+        self.model = model
+        self.decay = decay
+        self.shadow = {}
+        self.backup = {}
+
+    def register(self):
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                self.shadow[name] = param.data.clone()
+
+    def update(self):
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                assert name in self.shadow
+                new_average = (1.0 - self.decay)*param.data + \
+                    self.decay*self.shadow[name]
+                self.shadow[name] = new_average.clone()
+    
+    def apply_shadow(self):
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                assert name in self.shadow
+                self.backup[name] = param.data
+                param.data = self.shadow[name]
+    
+    def restore(self):
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                assert name in self.backup
+                param.data = self.backup[name]
+        self.backup = {}
+
+    def load_shadow(self, shadow):
+        self.shadow = deepcopy(shadow)
+
 
 
 
