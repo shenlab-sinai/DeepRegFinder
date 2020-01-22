@@ -104,19 +104,22 @@ for epoch in range(start_epoch, nb_epoch):
 
 # Evaluate the final model performance.
 if train_iter > 0:  # remaining iters not yet checked.
-    avg_val_loss, val_ap = prediction_loop(
-        model, device, val_loader, criterion=criterion, 
-        histone_list=None, dat_augment=dat_aug)
-    val_mAP = np.mean(val_ap[:-1])
-    print('Finally, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
-          '{:.3f}'.format(train_loss/train_iter, avg_val_loss, val_mAP), 
-          end='')
-    if val_mAP > best_mAP:
-        best_mAP = val_mAP
-        torch.save(model.state_dict(), best_model_path)
-        print(' --> best mAP updated; model saved.')
-    else:
-        print()
+    try:
+        avg_val_loss, val_ap = prediction_loop(
+            model, device, val_loader, criterion=criterion, 
+            histone_list=None, dat_augment=dat_aug)
+        val_mAP = np.mean(val_ap[:-1])
+        print('Finally, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
+              '{:.3f}'.format(train_loss/train_iter, avg_val_loss, val_mAP), 
+              end='')
+        if val_mAP > best_mAP:
+            best_mAP = val_mAP
+            torch.save(model.state_dict(), best_model_path)
+            print(' --> best mAP updated; model saved.')
+        else:
+            print()
+    except ValueError:
+        print('Model evaluation failed. Skip.')
 
 # Evaluate on the test set.
 model.load_state_dict(torch.load(best_model_path))
