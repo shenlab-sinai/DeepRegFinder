@@ -137,10 +137,10 @@ class RecurNet(nn.Module):
 
 
 def init_weights(m):
-    if isinstance(m, nn.Conv1d):
-        nn.init.kaiming_uniform_(m.weight.data, nonlinearity='relu')
-        nn.init.zeros_(m.bias.data)
-    elif isinstance(m, nn.Linear):
+    # if isinstance(m, nn.Conv1d):
+    #     nn.init.kaiming_uniform_(m.weight.data, nonlinearity='relu')
+    #     nn.init.zeros_(m.bias.data)
+    if isinstance(m, (nn.Linear, nn.Conv1d)):
         nn.init.kaiming_normal_(m.weight.data, nonlinearity='relu')
         nn.init.zeros_(m.bias.data)
 
