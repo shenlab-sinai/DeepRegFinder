@@ -73,7 +73,8 @@ class ConvNet(nn.Module):
 
         self.final_layer = nn.Sequential( 
             nn.AdaptiveAvgPool1d(1),
-            nn.Conv1d(64, nb_cls, 1),
+            # Turn off bias for class activation map.
+            nn.Conv1d(64, nb_cls, 1, bias=False),
             nn.Softmax(dim=1)
         )
         
