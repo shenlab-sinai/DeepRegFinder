@@ -143,7 +143,8 @@ def init_weights(m):
     #     nn.init.zeros_(m.bias.data)
     if isinstance(m, (nn.Linear, nn.Conv1d)):
         nn.init.kaiming_normal_(m.weight.data, nonlinearity='relu')
-        nn.init.zeros_(m.bias.data)
+        if m.bias is not None:
+            nn.init.zeros_(m.bias.data)
 
 
 def create_model(net_choice, num_marks=3, num_classes=5, num_bins=20, 
