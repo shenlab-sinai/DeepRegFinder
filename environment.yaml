@@ -1,0 +1,24 @@
+name: deepregfinder
+
+channels:
+  - conda-forge
+  - bioconda
+  - r
+  - defaults
+
+dependencies:
+  - r
+  - pandas
+  - matplotlib
+  - numpy
+  - pybedtools
+  - pysam
+  - scipy
+  - pytorch
+  - pyyaml
+  - scikit-learn
+  - tensorboard
+  - bedtools
+  - subread
+  - bioconductor-encodexplorer
+  - libopenblas
