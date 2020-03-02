@@ -127,48 +127,22 @@ avg_test_loss, test_ap, test_preds = prediction_loop(
     model, device, test_loader, criterion=criterion, 
     histone_list=None, dat_augment=dat_aug, 
     return_preds=True)
-
 truevals, predictions, probs = test_preds
-
-# Compute mAP, CI
-def mAP_conf_interval(label, score, nb_cls=5, bs_samples=1000, qs=[.025, .975], seed=12345):
-    """Calculate the confidence interval of mAP based on bootstrapping.
-    bs_samples ([int]): bootstrap sample size.
-    qs ([list of ints]): quantiles used for the bootstrap sample.
-    seed ([int]): random seed used for bootstrap.
-    """
-    binvals = label_binarize(label, classes=list(range(nb_cls)))
-
-    apr = average_precision_score(binvals, score, average=None)
-    mAP = np.mean(apr[:-1])
-    
-    rng = np.random.RandomState(seed)
-    mAP_pool = []
-    for _ in range(bs_samples):
-        ix = rng.choice(range(len(label)), len(label), replace=True)
-        label_s, score_s = label_binarize(label[ix], classes=list(range(nb_cls))), score[ix]
-        apr_s = average_precision_score(label_s, score_s, average=None)
-        mAP_s = np.mean(apr_s[:-1])
-        mAP_pool.append(mAP_s)
-    mAP_lower, mAP_upper = np.quantile(mAP_pool, q=qs)
-        
-    return [mAP, mAP_lower, mAP_upper]
-
-test_mAP = mAP_conf_interval(truevals, probs)
+test_mAP = mAP_conf_interval(truevals, probs, bs_samples=3000)
 
 def _test_set_summary(fh):
     '''Print summary info on the test set
     '''
     print('='*10, 'On test set', '='*10, file=fh)
-    print('avg test loss={:.3f} and mAP={:.3f}, 95% CI [{:.3f},{:.3f}]'.format(avg_test_loss, test_mAP[0], test_mAP[1], test_mAP[2]), 
-          file=fh)
+    print('avg test loss={:.3f} and mAP={:.3f}, 95% CI [{:.3f},{:.3f}]'.format(
+        avg_test_loss, test_mAP[0], test_mAP[1], test_mAP[2]), file=fh)
     print('AP for each class: poised enh={:.3f}, active enh={:.3f}, '
           'poised tss={:.3f}, active tss={:.3f}'.format(
             test_ap[0], test_ap[1], test_ap[2], test_ap[3]), 
           file=fh
          )
-_test_set_summary(sys.stdout)
 
+_test_set_summary(sys.stdout)
 with open(os.path.join(output_folder, summary_out_name), 'w') as fh:
     _test_set_summary(fh)
 

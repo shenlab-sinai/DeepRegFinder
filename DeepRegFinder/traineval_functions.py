@@ -12,10 +12,12 @@ import torch
 import torch.nn as nn
 import sys
 # np.seterr(divide='ignore', invalid='ignore')
-
 """
 Collection of helper functions for validation and accuracy
 """
+__all__ = ['plot_confusion_matrix', 'normalize_dat_dict', 'train_loop', 
+           'prediction_loop', 'mAP_conf_interval']
+
 
 def plot_pr(precision, recall, average_precision):
     """
@@ -385,5 +387,28 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
             return predictions, np.max(probs, axis=1), info_list
 
 
+def mAP_conf_interval(label, score, nb_cls=5, bs_samples=1000, 
+                      qs=[.025, .975], seed=12345):
+    """Calculate the confidence interval of mAP based on bootstrapping.
+    bs_samples ([int]): bootstrap sample size.
+    qs ([list of ints]): quantiles used for the bootstrap sample.
+    seed ([int]): random seed used for bootstrap.
+    """
+    binvals = label_binarize(label, classes=list(range(nb_cls)))
+    apr = average_precision_score(binvals, score, average=None)
+    mAP = np.mean(apr[:-1])
+    
+    rng = np.random.RandomState(seed)
+    mAP_pool = []
+    for _ in range(bs_samples):
+        ix = rng.choice(range(len(label)), len(label), replace=True)
+        label_s = label_binarize(label[ix], classes=list(range(nb_cls)))
+        score_s = score[ix]
+        apr_s = average_precision_score(label_s, score_s, average=None)
+        mAP_s = np.mean(apr_s[:-1])
+        mAP_pool.append(mAP_s)
+    mAP_lower, mAP_upper = np.quantile(mAP_pool, q=qs)
+        
+    return [mAP, mAP_lower, mAP_upper]
 
 
