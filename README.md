@@ -5,29 +5,29 @@ Icahn School of Medicine at Mount Sinai, New York, NY, USA
 
 **DeepRegFinder** is a deep learning program used to identify transcriptional regulatory elements on the genome using histone mark ChIP-seq based on PyTorch. 
 
-## Installation using pip
-DeepRegFinder relies on Python 3 (>=3.6). First, download the project repository to your workstation. After all the dependencies have been installed, go to the project folder and run the following command:
+## Installation
+DeepRegFinder relies on Python 3 (>=3.6) so make sure that's the Python you are using. There are a number of dependencies that DeepRegFinder needs. You can install them as follows.
 
-`pip install -e .`
-
-The dependencies are listed in the `requirements.txt`. You may automatically install them by:
-
-`pip install -r requirements.txt`
-
-Or, you can manually install them.
-
-## Installation using Anaconda
-You may also install DeepRegFinder using [Anaconda](https://www.anaconda.com/). Once you download Anaconda, download the project repository onto your workstation. Change into the downloaded repository and run the following command:
+### Install dependencies using Anaconda (recommended)
+You may install the dependencies using [Anaconda](https://www.anaconda.com/). Download the project repository onto your workstation. Change into the downloaded repository and run the following command:
 
 `conda env create -f environment.yaml`
 
-This will create a conda environment called deepregfinder. Next, you may activate the environment using the following command:
+This will create a conda environment called *deepregfinder*. Next, you may activate the environment using the following command:
 
 `conda activate deepregfinder`
 
-Make sure the repository DeepRegFinder is in your $PATH. You may do so by adding the following line to your \~/.bash_profile:
+### Install dependencies using pip
+First, download the project repository to your workstation. The dependencies and their versions in our development environment are listed in the `requirements.txt`. You may try to automatically install them by:
 
-`export PATH=~/software/DeepRegFinder:$PATH`
+`pip install -r requirements.txt`
+
+However, this approach may fail due to software incompatibility. In that case, you can manually install them. If a particular version is incompatible or becomes unavailable, you may install the current default version and it shall work just fine.
+
+### Install DeepRegFinder
+After all the dependencies have been installed, go to the project folder and run the following command to install DeepRegFinder:
+
+`pip install -e .`
 
 ## Running the pipeline
 The pipeline has three modules: preprocessing, training and prediction. You shall follow the three steps 1-by-1. The basic procedure for running each step is to first get all the required input files organized, fill out a configuration file and then run the corresponding program. You don't have to run the programs under the DeepRegFinder's repository because they shall already be in your PATH. You can go to your own project folder and issue commands from there. Use the configuration files in DeepRegFinder's repository as your starting points.
@@ -58,7 +58,7 @@ Fill out the configuration file: wg_prediction_data.yaml and run this command:
 
 ### Running time
 Approximate time to run the three modules (assume you have a not-too-old GPU and a multi-core CPU):
-- Preprocessing: 2h
+- Preprocessing: 2-8h
 - Training: 5 min
 - Prediction: 20 min
 
