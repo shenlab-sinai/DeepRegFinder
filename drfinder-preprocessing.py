@@ -133,7 +133,7 @@ def main():
     print('Finished processing True Positive Markers')
 
     # Get histone mark counts for the above defined regions.
-    process_histones(genome_saf_format, histone_path, output_folder, 
+    process_histones(genome_saf_format, histone_path, output_folder, 'histone_data', 
                      hist_logtrans, cpu_threads=cpu_threads)
     if hist_logtrans:
         all_histone_data = os.path.join(
@@ -198,6 +198,28 @@ def main():
                         output_folder, bkg_samples=bkg_samples, 
                         nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p)
     print('Finished making train-val-test datasets')
+
+    # Generate input for prediction step
+    try:
+        histone_pred_path = dataMap['histone_folder_prediction']
+        process_histones(genome_saf_format, histone_pred_path, output_folder, 'histone_data_prediction', 
+                     hist_logtrans, cpu_threads=cpu_threads)
+        if hist_logtrans:
+            all_histone_data = os.path.join(
+                output_folder, 'histone_data_prediction', 'alltogether_notnormed_logtrans.txt')
+        else:
+            all_histone_data = os.path.join(
+                output_folder, 'histone_data_prediction', 'alltogether_notnormed.txt')
+        print('Finished processing histones for prediction')
+        
+        bed = BedTool(all_histone_data)
+        bed.tabix(force=True, is_sorted=True)
+        print('Finished compressing and indexing files')
+
+    except KeyError:
+        histone_pred_path = None
+
+    print('Finished processing prediction data')
     
     # Print time.
     elapsed = time.time() - start

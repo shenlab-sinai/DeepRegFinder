@@ -33,7 +33,7 @@ After all the dependencies have been installed, go to the project folder and run
 The pipeline has three modules: preprocessing, training and prediction. You shall follow the three steps 1-by-1. The basic procedure for running each step is to first get all the required input files organized, fill out a configuration file and then run the corresponding program. You don't have to run the programs under the DeepRegFinder's repository because they shall already be in your PATH. You can go to your own project folder and issue commands from there. Use the configuration files in DeepRegFinder's repository as your starting points.
 
 ### An example project
-I understand how important it is to have an example for people to follow. Therefore I have created an example project with all annotations, bam files and configurations so that you can see how a project shall be structured. It can be accessed at this Google Dirve [folder](https://drive.google.com/drive/folders/1sW9KM9TnK6nqquf7nQniEpfTtiKtWVni?usp=sharing).
+I understand how important it is to have an example for people to follow. Therefore I have created an example project with all annotations, bam files and configurations so that you can see how a project shall be structured. It can be accessed at this Google Drive [folder](https://drive.google.com/drive/folders/1sW9KM9TnK6nqquf7nQniEpfTtiKtWVni?usp=sharing).
 
 To create the histones folder, you may use the script '/scripts/create_histones_folder.py' under DeepRegFinder repository. In the script, edit the section marked 'edit the following' and run the python script in background as follows:
 
