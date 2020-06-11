@@ -42,11 +42,24 @@ assert yu[-1] - yu[0] + 1 == len(yu), \
         of [0..{}] but got {}'.format(yu[-1], yu)
 print('Train unique labels: {}'.format(yu))
 print('Train label counts: {}'.format(yc))
-weights = np.zeros_like(ys, dtype='float')
-for i, f in enumerate(yc):
-    weights[ys==i] = 1/f
+# collapse the non-background classes into one for sampling.
+if dataMap['keep_cls_props']:
+    bkg_lab = yu[-1]
+    ys_ = ys.copy()
+    ys_[ys==bkg_lab] = 0
+    ys_[ys!=bkg_lab] = 1
+    yu_, yc_ = np.unique(ys_, return_counts=True)
+    #!!! Exp !!!#
+    # yc_[1] //= 2  # basically, up-sample bkg class.
+    # Obs: had little effect on APs.
+    #!!!!!!!!!!!#
+else:
+    ys_, yu_, yc_ = ys, yu, yc
+weights = np.zeros_like(ys_, dtype='float')
+for i, f in enumerate(yc_):
+    weights[ys_==i] = 1/f
 weighted_sampler = WeightedRandomSampler(
-    weights, len(ys)//batch_size*batch_size, 
+    weights, len(ys_)//batch_size*batch_size, 
     replacement=True)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, 
                           sampler=weighted_sampler, num_workers=cpu_threads)

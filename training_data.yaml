@@ -1,5 +1,6 @@
 all_datasets: 'output/tensor_data/all_datasets.pth.tar'
 net_choice: 'RecurNet'  # choose from [ConvNet, KimNet, RecurNet]
+keep_cls_props: True  # keep proportions of the non-bkg classes in training.
 conv_rnn: True
 init_lr: 0.01  # initial learning rate.
 weight_decay: 0.0001
