@@ -1,3 +1,5 @@
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 # DeepRegFinder: *Deep* Learning based *Reg*ulatory Elements *Finder*
 by Li Shen, Aarthi Ramakrishnan, George Wangensteen, Sarah Kim
 
