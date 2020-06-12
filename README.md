@@ -46,15 +46,35 @@ To get histone mark ChIP-seq from ENCODE easily, a script (`create_histones_fold
 
 For your own ChIP-seq data, just follow the same file structure and put your BAM files under corresponding folders. Data for the folders `peak_lists` and `tfbs` may be obtained from [ENCODE](https://www.encodeproject.org/) and data for the `genome` folder may be obtained from [gencode](https://www.gencodegenes.org/). GRO-seq data can be found on [GEO](https://www.ncbi.nlm.nih.gov/geo/). You may have to process the GRO-seq data yourself to obtain the bam files to be used with DeepRegFinder.
 
+After preprocessing finished, the following files will be generated and required for training and prediction:
+
+Under `tensor_data` directory:
+- all_datasets.pth.tar
+- chann_stats.csv
+
+Under `histone_data` directory:
+- alltogether_notnormed.txt.gz
+- alltogether_notnormed.txt.gz.tbi
+
+Under `tss_data` directory:
+- enhancer_slopped_tss.bed
+
+Under `tpms_data` directory:
+- final_tpms.bed
+
 ### Training
 Fill out the configuration file: `training_data.yaml` and run this command:
 
 `drfinder-training.py training_data.yaml <NAME OF OUTPUT FOLDER>`
 
+The trained model, training result summary and confusion matrix are under the `model` directory.
+
 ### Prediction
 Fill out the configuration file: `wg_prediction_data.yaml` and run this command:
 
 `drfinder-prediction.py wg_prediction_data.yaml <NAME OF OUTPUT FOLDER>`
+
+A prediction summary and the predicted enhancers and promoters are under the `predictions` directory.
 
 ### Running time
 Approximate time to run the three modules (assume you have a not-too-old GPU and a multi-core CPU):
@@ -62,6 +82,8 @@ Approximate time to run the three modules (assume you have a not-too-old GPU and
 - Training: 5 min
 - Prediction: 20 min
 
+### Cleaning up disk space
+DeepRegFinder may generate a lot of intermediate files that take up a large amount of disk space. If you are running short on disk space, you may want to delete them. Particularly, two directories - `genome_data` and `histone_data` use the most space. Feel safe to delete the `genome_data` directory. For the `histone_data` directory, only two files are needed: `alltogether_notnormed.txt.gz` and `alltogether_notnormed.txt.gz.tbi`; you may delete everything else.
 
 
 
