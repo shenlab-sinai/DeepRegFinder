@@ -227,10 +227,10 @@ Runs featureCounts on all reps of chiq-seq samples for each histone mark
 Calculates the average of the reps for each histone mark 
 Stores these averages as columns in the alltogether_notnormed.txt
 """
-def process_histones(genome_saf, histone_path, output_folder, output_histone_folder,
+def process_histones(genome_saf, histone_path, output_folder, 
                      hist_logtrans=False, cpu_threads=1):
     # import pdb; pdb.set_trace()
-    histone_out_folder = os.path.join(output_folder, output_histone_folder)
+    histone_out_folder = os.path.join(output_folder, 'histone_data')
     if not os.path.exists(histone_out_folder):
         os.mkdir(histone_out_folder)
     

@@ -23,7 +23,6 @@ distal_bp_distance : 1000 # use to slop TSSs.
 enhancer_distal_bp_distance: 2000 # enhancers must be this distance away from TSS.
                                   # it is also used to keep background windows away from 
                                   # regulatory elements.
-
 H3K4me3_file: 'example_dat/peak_lists/h1-h3k4me3-peaks.bed'
 
 # Path to DHS (or any other DNA accessibility) file
@@ -75,7 +74,10 @@ test_p: 0.2 # test set proportion.
 # Performance related parameters.
 cpu_threads: 6
 
-# If there is no prediction data, comment out the following
-# Verify that the same set of histone marks are present in both 'histones' and 'histones_pred'
-histone_folder_prediction: 'example_dat/histones_pred' 
+
+
+
+
+
+
 
