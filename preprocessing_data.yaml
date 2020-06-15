@@ -2,30 +2,38 @@
 genome: hg38
 window_width: 100
 number_of_windows: 20
+# the above defines a 20x100=2Kb region for enhancer and promoter prediction.
 
 # genome_size_file provides chromosome names and their sizes as a TAB-delimited text file. 
-# It can be used to select a subset of chromosomes. If not specified, the program
-# will use all chromosomes in valid_chromosomes.
-# Selecting a subset of the chromosomes allows you to quickly test out the whole pipeline.
+# It can be used to select a subset of chromosomes. This is not a necessary argument.
+# The main purpose of the argument is to allow you to select a subset of the chromosomes 
+# to quickly test out the whole pipeline.
+# If not specified, the program will use all chromosomes in the "valid_chromosomes" argument.
 genome_size_file: 'example_dat/genome/hg38.chr1.txt'
-# the chromosome names that are "valid". this serves to remove those scaffold or undetermined
-# chromosomes.
+
+# valid_chromosomes specifies the chromosome names that are "valid". This serves to remove those 
+# scaffold or undetermined chromosomes from training and prediction.
 valid_chromosomes: ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 
                     'chr8', 'chr9', 'chr10', 'chr11', 'chr12', 'chr13',
                     'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 
                     'chr21', 'chr22', 'chrX', 'chrY', 'chrM']
 
-# Path to tss file for clustering (1bp TSS).
+generate_prediction_data: False # Set to True if preprocessing prediction data
+
+# Path to transcriptional start site (TSS) BED file. The BED file shall contain regions of 1bp.
 tss_file: 'example_dat/genome/gencode_v32_tss.bed'
 distal_bp_distance : 1000 # use to slop TSSs.
 
 # Enhancer data
 enhancer_distal_bp_distance: 2000 # enhancers must be this distance away from TSS.
-                                  # it is also used to keep background windows away from 
-                                  # regulatory elements.
+                                  # it is also used to select background windows away from 
+                                  # DNA regulatory elements.
+
+# H3K4me3 peaks are used as a supplement to the TSSs defined above so that we do not bump into
+# these potential promoters.
 H3K4me3_file: 'example_dat/peak_lists/h1-h3k4me3-peaks.bed'
 
-# Path to DHS (or any other DNA accessibility) file
+# Path to DHS (or any other DNA accessibility such as ATAC-seq) peak file.
 DHS_file: 'example_dat/peak_lists/h1-dnase-seq-peaks.bed'
 
 # Path to enhancer peak files. You can use more than one peak lists, such as 
@@ -35,7 +43,7 @@ enhancer_files:
 
 # Transcription factor binding site files
 # These shall be the peak lists for the TFs that you believe to be enhancer
-# related. In H1 stem cells, Nanog, Oct4 and Sox2 are the master regulators
+# associated. In H1 stem cells, Nanog, Oct4 and Sox2 are the master regulators
 # that are considered to regulate enhancers.
 # If there are no TFBS files, just comment the following lines.
 TFBS:
@@ -48,7 +56,8 @@ TFBS:
 sense_bam_file : 'example_dat/groseq/h1-groseq-sense.bam'
 antisense_bam_file : 'example_dat/groseq/h1-groseq-antisense.bam'
 # groseq_bam_file: None  # for non-strand-specific GRO-seq.
-groseq_log_transformation: True #Whether you want to log transform the reads
+groseq_log_transformation: True # Whether you want to log transform the reads 
+                                # to help K-means clustering.
 
 # Path to the folder that has bam files for histone marks.
 # Should be of format:
@@ -64,18 +73,20 @@ groseq_log_transformation: True #Whether you want to log transform the reads
 #       To preprocess the prediction dataset, make sure you use the same set of 
 #       histone marks as that of training data
 histone_folder : 'example_dat/histones'
-generate_prediction_data: False # Set to True if preprocessing prediction data
-histone_log_transformation: False #Whether you want to log transform the reads
+histone_log_transformation: False # Whether you want to log transform the reads that are 
+                                  # used for training and predicting enhancers and promoters.
+                                  # Some evidence shows that it's better not to use 
+                                  # log-transformation.
 
 # Model training related parameters.
-bkg_samples: 100000 # #bkg-samples.
-nz_cutoff: 5 # #nonzero bins in a region; this cutoff is used to discard 
-             # regions with low information content, mostly background regions.
+bkg_samples: 100000 # number of bkg samples.
+nz_cutoff: 5 # number of nonzero bins in a region; this cutoff is used to discard 
+             # regions with low information content, mostly empty background regions.
 val_p: 0.2 # validation set proportion.
 test_p: 0.2 # test set proportion.
 
 # Performance related parameters.
-cpu_threads: 6
+cpu_threads: 6 # number of CPU cores to use.
 
 
 
