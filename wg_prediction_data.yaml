@@ -1,6 +1,10 @@
+# The compressed genomic bin count file. Make sure the corresponding '.tbi' file
+# is also in the same folder.
 whole_genome_bincnt_file: 'output/histone_data/alltogether_notnormed.txt.gz'
+# The mean and std of the histone marks used for training. This is an output of 
+# the training module.
 chann_stats_file: 'output/tensor_data/chann_stats.csv'
-net_choice: 'RecurNet'  # shall be the same as training.
+net_choice: 'RecurNet'  # network choice, shall be the same as training.
 conv_rnn: True  # shall be the same as training.
 window_width: 100
 number_of_windows: 20
@@ -10,12 +14,14 @@ prob_conf_cutoff: 0.5  # output only prediction with prob above this cutoff.
 data_augment: False
 # known TSSs to subtract from predicted enhancers.
 known_tss_file: 'output/tss_data/enhancer_slopped_tss.bed'
-# model state (parameters) from the training module.
+# Saved model state (parameters) from the training module.
 model_state_dict: 'output/model/best-mAP-model.pt'
-output_bed: 'wg_preds.bed'
-output_txt: 'pred_summary.txt'
+output_bed: 'wg_preds.bed' # predicted enhancers and promoters.
+output_txt: 'pred_summary.txt' # prediction summary TXT.
+# True positive mark (TPM) file can be used to calculate enhancer validation rate.
+# This is an output of the preprocessing module.
 tpms_file: 'output/tpms_data/final_tpms.bed'
-tpm_bps_added: 2500  # default from Kim et al.
+tpm_bps_added: 2500  # distance within TPMs to define "validated".
 
 
 
