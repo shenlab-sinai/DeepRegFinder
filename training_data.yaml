@@ -1,16 +1,18 @@
+# A tarball that contains the tensors for train, val and test sets.
 all_datasets: 'output/tensor_data/all_datasets.pth.tar'
 net_choice: 'RecurNet'  # choose from [ConvNet, KimNet, RecurNet]
-keep_cls_props: True  # keep proportions of the non-bkg classes in training.
-conv_rnn: True
+keep_cls_props: True  # keep proportions of the non-bkg classes in training, i.e.
+                      # do not re-sample them to balance the classes.
+conv_rnn: True  # add a conv layer before RNN.
 init_lr: 0.01  # initial learning rate.
 weight_decay: 0.0001
 batch_size: 256
 cpu_threads: 6
-data_augment: False
 best_model_name: 'best-mAP-model.pt' # best model file name.
-num_epochs: 10 # #training epochs.
-check_iters: 20 # #iters before check model performance
+num_epochs: 10 # number of training epochs.
+check_iters: 20 # number of iters in-between model performance checks.
 confus_mat_name: 'test_confusion_matrix' # Name of confusion matrix output
-pred_out_name: 'test_preds.csv'
-summary_out_name: 'test_summary.txt'
+pred_out_name: 'test_preds.csv' # prediction output file.
+summary_out_name: 'test_summary.txt' # test summary TXT.
 
+data_augment: False  # leave it as is, not fully tested.
