@@ -30,7 +30,16 @@ Additionally, DeepRegFinder is more parameter efficient than EP-DNN. The CNN and
 ### Visualization of first convolution layer filters
 One of the advantages of using convolution layers is that they tend to be easy to interpret. The following figure shows the activation patterns of the 32 1D filters of the first convolution layer of the CNN for the five classes (left panel) and the weights for a few example filters (right panel). As you can see, the activations show clear clusterings among the 32 filters and some filters are distinctly associated with certain classes. For example, filter 12 is exclusively associated with the active enhancer class and there is a clear peak detector for the H3K27ac histone mark.
 
-![conv1 filters fig](https://github.com/shenlab-sinai/DeepRegFinder/blob/master/figures/conv1%20filters%20acts%20and%20weights.png "conv1 filters")
+<img src="./figures/conv1%20filters%20acts%20and%20weights.png" alt="conv1_filters"/>
+
+### Network structures
+Here is the CNN structure (click to see enlarged version):
+
+<img src="./figures/CNN_structure.png" alt="cnn_struct" width="500"/>
+
+Here is the RNN structure (click to see enlarged version):
+
+<img src="./figures/RNN_structure.png" alt="rnn_struct" width="200"/>
 
 ## Installation
 DeepRegFinder relies on Python 3 (>=3.6) so make sure that's the Python you are using. There are a number of dependencies that DeepRegFinder needs. You can install them as follows.
