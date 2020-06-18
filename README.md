@@ -3,6 +3,8 @@
 # DeepRegFinder: *Deep* Learning based *Reg*ulatory Elements *Finder*
 by Li Shen, Aarthi Ramakrishnan, George Wangensteen, Sarah Kim
 
+Shen Lab Website: http://labs.neuroscience.mssm.edu/project/shen-lab/
+
 Icahn School of Medicine at Mount Sinai, New York, NY, USA
 
 **DeepRegFinder** is a deep learning based program to identify DNA regulatory elements using ChIP-seq. It uses the deep learning framework PyTorch. 
