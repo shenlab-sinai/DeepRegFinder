@@ -13,7 +13,7 @@ Identifying DNA regulatory elements such as enhancers and promoters has always b
 Many machine learning algorithms for enhancer identification exist. However, most of them are designed for reproducing results only. It's a hassle to apply them to your own data considering the most time-consuming part of a machine learning project is often data cleaning and formatting. We developed DeepRegFinder to be a modularized pipeline for you to build training data from aligned reads and genomic annotation easily so that you can use them to train models and make predictions. DeepRegFinder uses two deep neural networks: convolutional neural net (CNN) and recurrent neural net (RNN).
 
 ### Benchmarks
-DeepRegFinder predicts one of five classes for a genomic region: poised enhancer, active enhancer, poised promoter, active promoter and background. Mean average precision (mAP) of the four non-background classes is used as the model evaluation metric. DeepRegFinder compares favorably with two established methods on three different cell types (mAP with 95% confidence intervals):
+DeepRegFinder predicts one of five classes for a genomic region: poised enhancer (PE), active enhancer (AE), poised promoter (PT), active promoter (AT) and background (Bdg). Mean average precision (mAP) of the four non-background classes is used as the model evaluation metric. DeepRegFinder compares favorably with two established methods on three different cell types (mAP with 95% confidence intervals):
 |                                    |     K562                    |     H1                      |     GM12878                 |
 |------------------------------------|-----------------------------|-----------------------------|-----------------------------|
 |     DeepRegFinder (CNN)            |     0.721 [0.711, 0.732]    |     0.694 [0.680, 0.708]    |     0.679 [0.671, 0.686]    |
@@ -27,6 +27,10 @@ Additionally, DeepRegFinder is more parameter efficient than EP-DNN. The CNN and
 1. Kim,S.G. et al. (2016) EP-DNN: A Deep Neural Network-Based Global Enhancer Prediction Algorithm. Scientific Reports, 6, 38433.
 2. Rajagopal,N. et al. (2013) RFECS: A Random-Forest Based Algorithm for Enhancer Identification from Chromatin State. PLoS Comput Biol, 9, e1002968.
 
+### Visualization of first convolution layer filters
+One of the advantages of using convolution layers is that they tend to be easy to interpret. The following figure shows the activation patterns of the 32 1D filters of the first convolution layer of the CNN for the five classes (left panel) and the weights for a few example filters (right panel). As you can see, the activations show clear clusterings among the 32 filters and some filters are distinctly associated with certain classes. For example, filter 12 is exclusively associated with the active enhancer class and there is a clear peak detector for the H3K27ac histone mark.
+
+![conv1 filters fig](https://github.com/shenlab-sinai/DeepRegFinder/blob/master/figures/conv1%20filters%20acts%20and%20weights.png "conv1 filters")
 
 ## Installation
 DeepRegFinder relies on Python 3 (>=3.6) so make sure that's the Python you are using. There are a number of dependencies that DeepRegFinder needs. You can install them as follows.
