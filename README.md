@@ -7,6 +7,27 @@ Icahn School of Medicine at Mount Sinai, New York, NY, USA
 
 **DeepRegFinder** is a deep learning based program to identify DNA regulatory elements using ChIP-seq. It uses the deep learning framework PyTorch. 
 
+## Overview
+Identifying DNA regulatory elements such as enhancers and promoters has always been an important topic in the epigenomics field. Although certain histone marks are known to exhibit characteristic binding patterns at enhancers and promoters, the exact rules to make the call do not exist. Using machine learning models that are trained on known enhancers to predict at other regions using histone mark ChIP-seq data has been found to be the most successful method so far.
+
+Many machine learning algorithms for enhancer identification exist. However, most of them are designed for reproducing results only. It's a hassle to apply them to your own data considering the most time-consuming part of a machine learning project is often data cleaning and formatting. We developed DeepRegFinder to be a modularized pipeline for you to build training data from aligned reads and genomic annotation easily so that you can use them to train models and make predictions. DeepRegFinder uses two deep neural networks: convolutional neural net (CNN) and recurrent neural net (RNN).
+
+### Benchmarks
+DeepRegFinder predicts one of five classes for a genomic region: poised enhancer, active enhancer, poised promoter, active promoter and background. Mean average precision (mAP) of the four non-background classes is used as the model evaluation metric. DeepRegFinder compares favorably with two established methods on three different cell types (mAP with 95% confidence intervals):
+|                                    |     K562                    |     H1                      |     GM12878                 |
+|------------------------------------|-----------------------------|-----------------------------|-----------------------------|
+|     DeepRegFinder (CNN)            |     0.721 [0.711, 0.732]    |     0.694 [0.680, 0.708]    |     0.679 [0.671, 0.686]    |
+|     DeepRegFinder  (RNN)           |     0.717 [0.707, 0.728]    |     0.686 [0.672, 0.700]    |     0.673 [0.666, 0.681]    |
+|     EP-DNN (Kim,S.G. et al.)       |     0.619 [0.609, 0.629]    |     0.650 [0.637, 0.664]    |     0.634 [0.626, 0.642]    |
+|     RFECS (Rajagopal,N. et al.)    |     0.639 [0.627, 0.653]    |     0.665 [0.655, 0.676]    |     0.633 [0.625, 0.640]    |
+
+Additionally, DeepRegFinder is more parameter efficient than EP-DNN. The CNN and RNN have about 26K and 12K weight parameters, respectively, while EP-DNN has about 500K weight parameters. 
+
+**References**:
+1. Kim,S.G. et al. (2016) EP-DNN: A Deep Neural Network-Based Global Enhancer Prediction Algorithm. Scientific Reports, 6, 38433.
+2. Rajagopal,N. et al. (2013) RFECS: A Random-Forest Based Algorithm for Enhancer Identification from Chromatin State. PLoS Comput Biol, 9, e1002968.
+
+
 ## Installation
 DeepRegFinder relies on Python 3 (>=3.6) so make sure that's the Python you are using. There are a number of dependencies that DeepRegFinder needs. You can install them as follows.
 
