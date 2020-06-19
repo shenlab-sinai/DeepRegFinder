@@ -44,7 +44,7 @@ cpu_threads: 6 # number of CPU cores to use.
 
 # If you already have a trained model and are building data for prediction only,
 # set this to True, then the following parameters become irrelevant.
-generate_prediction_data: False
+generate_prediction_only: False
 
 
 #============= The following are required for training only =============#

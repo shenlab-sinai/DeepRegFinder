@@ -73,7 +73,7 @@ def main():
     
     #Data for histone mark file creation
     histone_path = dataMap['histone_folder']
-    generate_prediction_data = dataMap['generate_prediction_data']
+    generate_prediction_only = dataMap['generate_prediction_only']
     hist_logtrans = dataMap['histone_log_transformation']
     bkg_samples = dataMap['bkg_samples']
     nz_cutoff = dataMap['nz_cutoff']
@@ -111,7 +111,7 @@ def main():
     print('Finished compressing and indexing files')
     histone_compressed = all_histone_data + '.gz'
     
-    if not generate_prediction_data:
+    if not generate_prediction_only:
         # TSSs are from existing annotations. Clustered TSSs are collapsed.
         process_tss(tss_file, DHS_file, genome, valids, enhancer_distal_num, 
                     distal_num, output_folder)
