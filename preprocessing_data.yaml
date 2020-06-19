@@ -18,7 +18,38 @@ valid_chromosomes: ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7',
                     'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 
                     'chr21', 'chr22', 'chrX', 'chrY', 'chrM']
 
-generate_prediction_data: False # Set to True if preprocessing prediction data
+# Path to the folder that has bam files for histone marks.
+# Should be of the following directory structure:
+# histones/
+#     histone1/
+#         histone1_chipseqassay_rep1.bam
+#         histone1_chipseqassay_rep2.bam
+#     histone2/
+#         histone2_chipseqassay_rep1.bam
+#         histone2_chipseqassay_rep2.bam
+# Note: histone files must be of format xxx_repN.bam where N represents the rep number
+#       Even when you have only one replicate, name it as xxx_rep1.bam.
+histone_folder : 'example_dat/histones'
+histone_log_transformation: False # Whether you want to log transform the reads that are 
+                                  # used for training and predicting enhancers and promoters.
+                                  # Some evidence shows that it's better not to use 
+                                  # log-transformation.
+#==== Important: ====#
+# If you are preprocessing the prediction dataset only, make sure you use the same set of 
+# histone marks on which your models are trained. The sub-directory names for the histone marks
+# are case sensitive and shall be the same between training and prediction.
+
+# Performance related parameters.
+cpu_threads: 6 # number of CPU cores to use.
+
+# If you already have a trained model and are building data for prediction only,
+# set this to True, then the following parameters become irrelevant.
+generate_prediction_data: False
+
+
+#============= The following are required for training only =============#
+# The following parameters are related to genomic annotation and model training.
+# Leave them alone if you are only building data for prediction.
 
 # Path to transcriptional start site (TSS) BED file. The BED file shall contain regions of 1bp.
 tss_file: 'example_dat/genome/gencode_v32_tss.bed'
@@ -59,25 +90,6 @@ antisense_bam_file : 'example_dat/groseq/h1-groseq-antisense.bam'
 groseq_log_transformation: True # Whether you want to log transform the reads 
                                 # to help K-means clustering.
 
-# Path to the folder that has bam files for histone marks.
-# Should be of format:
-# histones/
-#     histone1/
-#         histone1_chipseqassay_rep1.bam
-#         histone1_chipseqassay_rep2.bam
-#     histone2/
-#         histone2_chipseqassay_rep1.bam
-#         histone2_chipseqassay_rep2.bam
-# Note: histone files must be of format xxx_repN.bam where N represents the rep number
-#       Even when you have only one replicate, name it as xxx_rep1.bam.
-#       To preprocess the prediction dataset, make sure you use the same set of 
-#       histone marks as that of training data
-histone_folder : 'example_dat/histones'
-histone_log_transformation: False # Whether you want to log transform the reads that are 
-                                  # used for training and predicting enhancers and promoters.
-                                  # Some evidence shows that it's better not to use 
-                                  # log-transformation.
-
 # Model training related parameters.
 bkg_samples: 100000 # number of bkg samples.
 nz_cutoff: 5 # number of nonzero bins in a region; this cutoff is used to discard 
@@ -85,8 +97,6 @@ nz_cutoff: 5 # number of nonzero bins in a region; this cutoff is used to discar
 val_p: 0.2 # validation set proportion.
 test_p: 0.2 # test set proportion.
 
-# Performance related parameters.
-cpu_threads: 6 # number of CPU cores to use.
 
 
 
