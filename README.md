@@ -43,6 +43,11 @@ Here is the RNN structure (click to see enlarged version):
 
 <img src="./figures/RNN_structure.png" alt="rnn_struct" width="200"/>
 
+### Multi-class classification analysis
+Previous studies tend to focus on binary classifications between enhancer (as positive) and the rest (as negative), where promoters are lumped into the negative class. This can lead to an issue that the performance to distinguish enhancers from other regulatory elements becomes unclear. 5-way classification is used in DeepRegFinder. The following confusion matrix is from CNN predictions on the K562 cell type. We can see that for the active enhancer and promoter classes, the classifier is fairly accurate. However, the poised enhancer and promoter classes are often mistaken with other classes (click to see enlarged version):
+
+<img src="./figures/test_confusion_matrix_convnet.png" alt="k562_confmat_cnn" width="300"/>
+
 ## Installation
 DeepRegFinder relies on Python 3 (>=3.6) so make sure that's the Python you are using. There are a number of dependencies that DeepRegFinder needs. You can install them as follows.
 
