@@ -67,10 +67,16 @@ First, download the project repository to your workstation. The dependencies and
 
 However, this approach may fail due to software incompatibility. In that case, you can manually install each package. If a particular version is incompatible or becomes unavailable, you may install the current default version and it shall work just fine.
 
+### Install featureCounts
+The preprocessing module relies on a program called `featureCounts` from the [Subread](http://subread.sourceforge.net/) package for short read counting. If you install the dependencies using Anaconda, the **Subread** package is already installed and you don't need to do anything. If you install the dependencies using pip, you'll need to install the **Subread** package manually and make sure `featureCounts` is in your `PATH`.
+
 ### Install DeepRegFinder
 After all the dependencies have been installed, go to the project folder and run the following command to install DeepRegFinder:
 
 `pip install -e .`
+
+### About Operating Systems
+DeepRegFinder has been tested under Linux and Mac. We never tested it under Windows. You may have to use a simulated terminal such as [Cygwin](https://www.cygwin.com/). 
 
 ## Running the pipeline
 The pipeline has three modules: preprocessing, training and prediction. You can execute each module separately, which provides a lot of flexibility. The basic procedure for running each step is to first gather all the required input files, fill out a YAML configuration file and then run the corresponding program. We have provided example configuration files for you to easily follow. If you installed DeepRegFinder properly, the three `drfinder-xxx.py` scripts shall already be in your `PATH`. You can go to your own project folder and issue commands from there. Use the configuration files in DeepRegFinder's repository as your starting points.
