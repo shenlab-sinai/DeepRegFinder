@@ -48,10 +48,13 @@ Previous studies tend to focus on binary classifications between enhancer (as po
 
 <img src="./figures/test_confusion_matrix_convnet.png" alt="k562_confmat_cnn" width="300"/>
 
+## Run DeepRegFinder using the Docker image (recommended)
+A Docker Image for DeepRegFinder is available at https://hub.docker.com/r/aarthir239/deepregfinder. Please read the documentation on the Docker Hub page to use the image.
+
 ## Installation
 DeepRegFinder relies on Python 3 (>=3.6) so make sure that's the Python you are using. There are a number of dependencies that DeepRegFinder needs. You can install them as follows.
 
-### Install dependencies using Anaconda (recommended)
+### Install dependencies using Anaconda
 You may install the dependencies using [Anaconda](https://www.anaconda.com/). Download the project repository onto your workstation. Change into the downloaded repository and run the following command:
 
 `conda env create -f environment.yaml`
