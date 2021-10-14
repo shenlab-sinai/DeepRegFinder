@@ -103,11 +103,11 @@ def plot_confusion_matrix(cm, norm=True, n_classes=5):
     cm_ = cm.copy()
     if norm:  # normalize each target class.
         cm = cm.astype('float')/cm.sum(axis=1)[:, np.newaxis]
-    if n_classes == 3 :
-        classes = ['enhancer', 'tss', 'background']
+    if n_classes == 2 :
+        classes = ['Background', 'Enhancer']
     elif n_classes == 5:
-        classes = ['poised enhancer', 'active enhancer', 
-                   'poised tss', 'active tss', 'background']
+        classes = ['Poised Enhancer', 'Active Enhancer', 
+                   'Poised TSS', 'Active TSS', 'Background']
     else:
         classes = [ str(c + 1) for c in range(n_classes)]
     cmap = plt.cm.Blues
@@ -241,7 +241,7 @@ def normalize_dat_dict(batch_data, use_sequence, use_histone,
     return dat_dict
 
 
-def train_loop(model, criterion, optimizer, scheduler, device, train_loss, 
+def train_loop(model, num_classes, criterion, optimizer, scheduler, device, train_loss, 
                best_mAP, epoch, check_iters, train_loader, val_loader, 
                best_model_path, checkpoint_path, histone_list=None, 
                dat_augment=False, writer=None):
@@ -265,9 +265,14 @@ def train_loop(model, criterion, optimizer, scheduler, device, train_loss,
         if nb_iter % check_iters == 0:
             try: 
                 avg_val_loss, val_ap = prediction_loop(
-                    model, device, val_loader, criterion=criterion, 
+                    model, num_classes, device, val_loader, criterion=criterion, 
                     histone_list=histone_list, dat_augment=dat_augment)
-                val_mAP = np.mean(val_ap[:-1])  # ignore background class.
+
+                if num_classes == 5:
+                    val_mAP = np.mean(val_ap[:-1])  # ignore background class.
+                elif num_classes == 2:
+                    val_mAP = np.mean(val_ap)
+
                 avg_train_loss = train_loss/check_iters
                 print('Iter={}, avg train loss: {:.3f}; val loss: {:.3f}, '
                       'val mAP: {:.3f}'.format(nb_iter, avg_train_loss, 
@@ -310,7 +315,7 @@ def train_loop(model, criterion, optimizer, scheduler, device, train_loss,
     return train_loss, (i + 1) % check_iters, best_mAP
 
 
-def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None, 
+def prediction_loop(model, num_classes, device, dat_loader, pred_only=False, criterion=None, 
                     histone_list=None, dat_augment=False, return_preds=False, 
                     nb_batch=None, show_status=False):
     '''Model validation on an entire val set
@@ -360,9 +365,13 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
         scores = np.concatenate(s)
         probs = np.exp(scores) # log(softmax)->prob.
         if not pred_only:
-            nb_cls = scores.shape[1]
             truevals = np.concatenate(t)
-            binvals = label_binarize(truevals, classes=list(range(nb_cls)))
+
+            if num_classes == 2:
+                binvals = np.array([[1,0] if l==0 else [0, 1] for l in truevals]) 
+            else:
+                binvals = label_binarize(truevals, classes=list(range(num_classes)))
+            
             try:
                 all_cls_ap = average_precision_score(binvals, probs, average=None)
             except ValueError as err:
@@ -372,7 +381,6 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
                 print('Model blow-up may have happened. Try to reduce '
                       'learning rate or increase weight decay.', 
                       file=sys.stderr)
-                # import pdb; pdb.set_trace()
                 # print('='*10, 'System error below', '='*10)
                 raise err
             if return_preds:
@@ -387,28 +395,42 @@ def prediction_loop(model, device, dat_loader, pred_only=False, criterion=None,
             return predictions, np.max(probs, axis=1), info_list
 
 
-def mAP_conf_interval(label, score, nb_cls=5, bs_samples=1000, 
+def mAP_conf_interval(label, score, num_classes=2, bs_samples=1000, 
                       qs=[.025, .975], seed=12345):
     """Calculate the confidence interval of mAP based on bootstrapping.
     bs_samples ([int]): bootstrap sample size.
     qs ([list of ints]): quantiles used for the bootstrap sample.
     seed ([int]): random seed used for bootstrap.
     """
-    binvals = label_binarize(label, classes=list(range(nb_cls)))
-    apr = average_precision_score(binvals, score, average=None)
-    mAP = np.mean(apr[:-1])
+    if num_classes == 2:
+        binvals = np.array([[1,0] if l==0 else [0, 1] for l in label])
+        apr = average_precision_score(binvals, score, average=None)
+        mAP = np.mean(apr)
+    elif num_classes == 5:
+        binvals = label_binarize(label, classes=list(range(num_classes)))
+        apr = average_precision_score(binvals, score, average=None)
+        mAP = np.mean(apr[:-1])
     
     rng = np.random.RandomState(seed)
     mAP_pool = []
     for _ in range(bs_samples):
         ix = rng.choice(range(len(label)), len(label), replace=True)
-        label_s = label_binarize(label[ix], classes=list(range(nb_cls)))
-        score_s = score[ix]
-        apr_s = average_precision_score(label_s, score_s, average=None)
-        mAP_s = np.mean(apr_s[:-1])
-        mAP_pool.append(mAP_s)
+        
+        if num_classes == 5:
+            label_s = label_binarize(label[ix], classes=list(range(num_classes)))
+            score_s = score[ix]
+            apr_s = average_precision_score(label_s, score_s, average=None)
+            mAP_s = np.mean(apr_s[:-1])
+            mAP_pool.append(mAP_s)
+
+        elif num_classes == 2:
+            label_s = np.array([[1,0] if l==0 else [0, 1] for l in label[ix]]) 
+            score_s = score[ix]
+            apr_s = average_precision_score(label_s, score_s, average=None)
+            mAP_s = np.mean(apr_s)
+            mAP_pool.append(mAP_s)
+
     mAP_lower, mAP_upper = np.quantile(mAP_pool, q=qs)
         
     return [mAP, mAP_lower, mAP_upper]
-
 

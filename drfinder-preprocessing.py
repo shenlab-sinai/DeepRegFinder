@@ -41,6 +41,7 @@ def main():
         genome_size_file = None
     window_width = dataMap['window_width']
     number_of_windows = dataMap['number_of_windows']
+    num_classes = dataMap['num_classes']
 
     # Promoter files.
     tss_file = dataMap['tss_file']
@@ -61,15 +62,17 @@ def main():
         TFBS = None
     
     #Data for active poised clustering
-    try:
-        sense_bam_file = dataMap['sense_bam_file']
-        antisense_bam_file = dataMap['antisense_bam_file']
-        groseq_bam_file = None
-    except KeyError:
-        groseq_bam_file = dataMap['groseq_bam_file']
-        sense_bam_file = None
-        antisense_bam_file = None
-    groseq_logtrans = dataMap['groseq_log_transformation']
+    if num_classes == 5:
+        try:
+            sense_bam_file = dataMap['sense_bam_file']
+            antisense_bam_file = dataMap['antisense_bam_file']
+            groseq_bam_file = None
+        except KeyError:
+            groseq_bam_file = dataMap['groseq_bam_file']
+            sense_bam_file = None
+            antisense_bam_file = None
+
+        groseq_logtrans = dataMap['groseq_log_transformation']
     
     #Data for histone mark file creation
     histone_path = dataMap['histone_folder']
@@ -152,53 +155,60 @@ def main():
         print('Finished processing True Positive Markers')
 
         # Get GRO-seq counts for enhancers and TSSs.
-        process_groseq(enhancers_saf, sense_bam_file, antisense_bam_file, 
-                       groseq_bam_file, output_folder, groseq_logtrans, 
-                       cpu_threads=cpu_threads)
-        process_groseq(slopped_tss_saf, sense_bam_file, antisense_bam_file, 
-                       groseq_bam_file, output_folder, groseq_logtrans, 
-                       cpu_threads=cpu_threads)
-        if groseq_logtrans:
-            file_tail = '_logtrans.txt'
-        else:
-            file_tail = '.txt'
-        if sense_bam_file is not None:
-            enh_sense_file = os.path.join(
-                output_folder, 'groseq_data', 
-                'strict_slopped_enh_sense_bam-bincounts' + file_tail)
-            enh_antisense_file = os.path.join(
-                output_folder, 'groseq_data', 
-                'strict_slopped_enh_antisense_bam-bincounts' + file_tail)
-            tss_sense_file = os.path.join(
-                output_folder, 'groseq_data', 
-                'true_slopped_tss_sense_bam-bincounts' + file_tail)
-            tss_antisense_file = os.path.join(
-                output_folder, 'groseq_data', 
-                'true_slopped_tss_antisense_bam-bincounts' + file_tail)
-            enh_groseq_file = None
-            tss_groseq_file = None
-        else:
-            enh_groseq_file = os.path.join(
-                output_folder, 'groseq_data', 
-                'strict_slopped_enh_bam-bincounts' + file_tail)
-            tss_groseq_file = os.path.join(
-                output_folder, 'groseq_data', 
-                'true_slopped_tss_bam-bincounts' + file_tail)
-            enh_sense_file, enh_antisense_file = None, None
-            tss_sense_file, tss_antisense_file = None, None
-        print('Finished processing groseq')
+        if num_classes == 5:
+            process_groseq(enhancers_saf, sense_bam_file, antisense_bam_file, 
+                           groseq_bam_file, output_folder, groseq_logtrans, 
+                           cpu_threads=cpu_threads)
+            process_groseq(slopped_tss_saf, sense_bam_file, antisense_bam_file, 
+                           groseq_bam_file, output_folder, groseq_logtrans, 
+                           cpu_threads=cpu_threads)
+            if groseq_logtrans:
+                file_tail = '_logtrans.txt'
+            else:
+                file_tail = '.txt'
+            if sense_bam_file is not None:
+                enh_sense_file = os.path.join(
+                    output_folder, 'groseq_data', 
+                    'strict_slopped_enh_sense_bam-bincounts' + file_tail)
+                enh_antisense_file = os.path.join(
+                    output_folder, 'groseq_data', 
+                    'strict_slopped_enh_antisense_bam-bincounts' + file_tail)
+                tss_sense_file = os.path.join(
+                    output_folder, 'groseq_data', 
+                    'true_slopped_tss_sense_bam-bincounts' + file_tail)
+                tss_antisense_file = os.path.join(
+                    output_folder, 'groseq_data', 
+                    'true_slopped_tss_antisense_bam-bincounts' + file_tail)
+                enh_groseq_file = None
+                tss_groseq_file = None
+            else:
+                enh_groseq_file = os.path.join(
+                    output_folder, 'groseq_data', 
+                    'strict_slopped_enh_bam-bincounts' + file_tail)
+                tss_groseq_file = os.path.join(
+                    output_folder, 'groseq_data', 
+                    'true_slopped_tss_bam-bincounts' + file_tail)
+                enh_sense_file, enh_antisense_file = None, None
+                tss_sense_file, tss_antisense_file = None, None
+            print('Finished processing groseq')
    
-        # Define active and poised enhancers and TSSs.
-        positive_enh, negative_enh = positive_negative_clustering(
-            enh_sense_file, enh_antisense_file, enh_groseq_file)
-        positive_tss, negative_tss = positive_negative_clustering(
-            tss_sense_file, tss_antisense_file, tss_groseq_file)
+            # Define active and poised enhancers and TSSs.
+            positive_enh, negative_enh = positive_negative_clustering(
+                enh_sense_file, enh_antisense_file, enh_groseq_file)
+            positive_tss, negative_tss = positive_negative_clustering(
+                tss_sense_file, tss_antisense_file, tss_groseq_file)
         
-        make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss, 
-                            enhancers, unslopped_tss, final_background, 
-                            histone_compressed, window_width, number_of_windows, 
-                            output_folder, bkg_samples=bkg_samples, 
-                            nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p)
+            make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss, 
+                                enhancers, unslopped_tss, final_background, 
+                                histone_compressed, window_width, number_of_windows, 
+                                output_folder, bkg_samples=bkg_samples, 
+                                nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
+        elif num_classes == 2:
+            make_tensor_dataset(None, None, None, None, enhancers, None, final_background, 
+                    histone_compressed, window_width, number_of_windows, 
+                    output_folder, bkg_samples=bkg_samples, 
+                    nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
+
         print('Finished making train-val-test datasets')
     
     # Print time.

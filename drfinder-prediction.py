@@ -67,7 +67,7 @@ model.load_state_dict(torch.load(model_state_dict, map_location=device))
 data_augment = dataMap['data_augment']
 time_begin = time()
 wg_preds, wg_maxprobs, wg_info = prediction_loop(
-    model, device, wg_loader, pred_only=True, dat_augment=data_augment, 
+    model, num_classes, device, wg_loader, pred_only=True, dat_augment=data_augment, 
     nb_batch=None, show_status=True)
 elapsed = time() - time_begin
 print('Prediction finished. Elapsed time: {:.1f}s.'.format(elapsed))
@@ -80,6 +80,7 @@ wg_blocks = process_genome_preds(
     wg_preds, wg_info[0], wg_info[1], wg_maxprobs, ignore_labels=[4], 
     maxprob_cutoff=prob_conf_cutoff, nb_block=None)
 bed_dict = post_merge_blocks(wg_blocks, window_width, number_of_windows, 
+                             num_classes=num_classes, 
                              known_tss_file=known_tss_file)
 
 # TPMs validation rate.
@@ -90,15 +91,20 @@ fh = open(output_txt, 'w')
 tpms = BedTool(tpms_file)
 tvr_list = []
 for name in bed_dict:
+    bed = bed_dict[name]
+    tvr = len(bed.window(b=tpms, w=tpm_bps_added, u=True))/len(bed)
     # TPMs by creation are away from TSS. We only consider enhancers here.
-    if name.endswith('Enh'):
-        bed = bed_dict[name]
-        tvr = len(bed.window(b=tpms, w=tpm_bps_added, u=True))/len(bed)
+    if num_classes == 5 and name.endswith('Enh'):
         print('Validation rate for {}={:.3f}'.format(name, tvr))
         print('Validation rate for {}={:.3f}'.format(name, tvr), file=fh)
         tvr_list.append(tvr)
-print('Average validation rate={:.3f}'.format(np.mean(tvr_list)))
-print('Average validation rate={:.3f}'.format(np.mean(tvr_list)), file=fh)
+        print('Average validation rate={:.3f}'.format(np.mean(tvr_list)))
+        print('Average validation rate={:.3f}'.format(np.mean(tvr_list)), file=fh)
+
+    elif num_classes == 2 and name.startswith('Enh'):
+        print('Validation rate for {}={:.3f}'.format(name, tvr))
+        print('Validation rate for {}={:.3f}'.format(name, tvr), file=fh)
+
 fh.close()
 
 # merge different types together without merging the intervals.

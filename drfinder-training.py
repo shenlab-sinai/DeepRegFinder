@@ -29,6 +29,7 @@ if not os.path.exists(output_folder):
 
 # Load datasets.
 d = torch.load(dataMap['all_datasets'])
+num_classes = dataMap['num_classes']
 train_dataset = d['train']
 val_dataset = d['val']
 test_dataset = d['test']
@@ -110,7 +111,7 @@ writer = SummaryWriter(train_logs)
 for epoch in range(start_epoch, nb_epoch):
     # print('Epoch {}'.format(epoch + 1))
     train_loss, train_iter, best_mAP = train_loop(
-        model, criterion, optimizer, scheduler, device, train_loss, best_mAP, epoch, 
+        model, num_classes, criterion, optimizer, scheduler, device, train_loss, best_mAP, epoch, 
         check_iters, train_loader, val_loader, best_model_path, checkpoint_path, 
         histone_list=None, dat_augment=dat_aug, writer=writer)
     scheduler.step(best_mAP)
@@ -119,9 +120,12 @@ for epoch in range(start_epoch, nb_epoch):
 if train_iter > 0:  # remaining iters not yet checked.
     try:
         avg_val_loss, val_ap = prediction_loop(
-            model, device, val_loader, criterion=criterion, 
+            model, num_classes, device, val_loader, criterion=criterion, 
             histone_list=None, dat_augment=dat_aug)
-        val_mAP = np.mean(val_ap[:-1])
+        if num_classes == 2:
+            val_mAP = np.mean(val_ap)
+        elif num_classes == 5:
+            val_mAP = np.mean(val_ap[:-1])
         print('Finally, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
               '{:.3f}'.format(train_loss/train_iter, avg_val_loss, val_mAP), 
               end='')
@@ -137,11 +141,12 @@ if train_iter > 0:  # remaining iters not yet checked.
 # Evaluate on the test set.
 model.load_state_dict(torch.load(best_model_path))
 avg_test_loss, test_ap, test_preds = prediction_loop(
-    model, device, test_loader, criterion=criterion, 
+    model, num_classes, device, test_loader, criterion=criterion, 
     histone_list=None, dat_augment=dat_aug, 
     return_preds=True)
 truevals, predictions, probs = test_preds
-test_mAP = mAP_conf_interval(truevals, probs, bs_samples=3000)
+test_mAP = mAP_conf_interval(truevals, probs, num_classes=num_classes, bs_samples=3000)
+
 
 def _test_set_summary(fh):
     '''Print summary info on the test set
@@ -149,12 +154,20 @@ def _test_set_summary(fh):
     print('='*10, 'On test set', '='*10, file=fh)
     print('avg test loss={:.3f} and mAP={:.3f}, 95% CI [{:.3f},{:.3f}]'.format(
         avg_test_loss, test_mAP[0], test_mAP[1], test_mAP[2]), file=fh)
-    print('AP for each class: poised enh={:.3f}, active enh={:.3f}, '
-          'poised tss={:.3f}, active tss={:.3f}'.format(
-            test_ap[0], test_ap[1], test_ap[2], test_ap[3]), 
-          file=fh
-         )
+    if num_classes == 5:
 
+        print('AP for each class: poised enh={:.3f}, active enh={:.3f}, '
+              'poised tss={:.3f}, active tss={:.3f}'.format(
+                test_ap[0], test_ap[1], test_ap[2], test_ap[3]), 
+              file=fh
+             )
+
+    elif num_classes == 2:
+
+        print('AP for each class: Background={:.3f}, Enhancer={:.3f}, '.format(
+                test_ap[0], test_ap[1]), 
+              file=fh
+             ) 
 _test_set_summary(sys.stdout)
 with open(os.path.join(output_folder, summary_out_name), 'w') as fh:
     _test_set_summary(fh)
@@ -168,7 +181,10 @@ cm.to_csv(os.path.join(output_folder, confus_mat_name + '.csv'))
 # test set predictions.
 df = np.stack([truevals, predictions], axis=1)
 df = np.concatenate([df, probs], axis=1)
-col_names = ['label', 'pred', 'poised_enh', 'active_enh', 
+if num_classes == 2:
+    col_names = ['label', 'pred', 'Enhancer', 'Background']
+else:
+    col_names = ['label', 'pred', 'poised_enh', 'active_enh', 
              'poised_tss', 'active_tss', 'background']
 df = pd.DataFrame(df, columns=col_names).round(3)
 df = df.astype({'label': 'int', 'pred': 'int'})

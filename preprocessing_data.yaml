@@ -4,6 +4,10 @@ window_width: 100
 number_of_windows: 20
 # the above defines a 20x100=2Kb region for enhancer and promoter prediction.
 
+num_classes: 2 
+# choose between 2 or 5. 2 identifies enhancers 
+# whereas 5 identifies Poised Enh, Active Enh, Poised TSS and Active TSS regions in the genome.
+
 # genome_size_file provides chromosome names and their sizes as a TAB-delimited text file. 
 # It can be used to select a subset of chromosomes. This is not a necessary argument.
 # The main purpose of the argument is to allow you to select a subset of the chromosomes 
@@ -81,6 +85,14 @@ TFBS:
  - 'example_dat/tfbs/nanog.bed'
  - 'example_dat/tfbs/oct4.bed'
 
+# Model training related parameters.
+bkg_samples: 100000 # number of bkg samples.
+nz_cutoff: 5 # number of nonzero bins in a region; this cutoff is used to discard 
+             # regions with low information content, mostly empty background regions.
+val_p: 0.2 # validation set proportion.
+test_p: 0.2 # test set proportion.
+
+# use when num_class is 5. Else, set following fields to None 
 # Path to data with the sense and antisense GRO-seq bam file.
 # When you don't have strand-specific GRO-seq, comment the following two
 # lines and use "groseq_bam_file".
@@ -89,19 +101,3 @@ antisense_bam_file : 'example_dat/groseq/h1-groseq-antisense.bam'
 # groseq_bam_file: None  # for non-strand-specific GRO-seq.
 groseq_log_transformation: True # Whether you want to log transform the reads 
                                 # to help K-means clustering.
-
-# Model training related parameters.
-bkg_samples: 100000 # number of bkg samples.
-nz_cutoff: 5 # number of nonzero bins in a region; this cutoff is used to discard 
-             # regions with low information content, mostly empty background regions.
-val_p: 0.2 # validation set proportion.
-test_p: 0.2 # test set proportion.
-
-
-
-
-
-
-
-
-

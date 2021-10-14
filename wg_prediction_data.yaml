@@ -4,12 +4,12 @@ whole_genome_bincnt_file: 'output/histone_data/alltogether_notnormed.txt.gz'
 # The mean and std of the histone marks used for training. This is an output of 
 # the training module.
 chann_stats_file: 'output/tensor_data/chann_stats.csv'
-net_choice: 'RecurNet'  # network choice, shall be the same as training.
+net_choice: 'ConvNet'  # network choice, shall be the same as training.
 conv_rnn: True  # shall be the same as training.
+num_classes: 2 # shall be the same as preprocessing and training.
 window_width: 100
 number_of_windows: 20
 batch_size: 10000
-num_classes: 5
 prob_conf_cutoff: 0.5  # output only prediction with prob above this cutoff.
 data_augment: False
 # known TSSs to subtract from predicted enhancers.
@@ -22,9 +22,3 @@ output_txt: 'pred_summary.txt' # prediction summary TXT.
 # This is an output of the preprocessing module.
 tpms_file: 'output/tpms_data/final_tpms.bed'
 tpm_bps_added: 2500  # distance within TPMs to define "validated".
-
-
-
-
-
-
