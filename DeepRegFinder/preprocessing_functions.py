@@ -591,10 +591,17 @@ def make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss,
             samples=bkg_samples, nz_cutoff=nz_cutoff, 
             out_bed=bkg_bed, base_label=0)
         print("Made background histone tensor")
-        
+
+        tss_X, tss_y = build_histone_tensors(
+            tss, hist_cnt_file, None, None, 
+            window_width, number_of_windows, is_bkg=False, 
+            is_enhancer_binary=False, samples=None, out_bed=None,
+            nz_cutoff=nz_cutoff, base_label=0)
+        print("Made tss histone tensor")   
+
         # Concat enhancer and bkg and then split into train-val-test.
-        train_X = np.concatenate([enhancer_X, bg_X])
-        train_y = np.concatenate([enhancer_y, bg_y])
+        train_X = np.concatenate([enhancer_X, bg_X, tss_X])
+        train_y = np.concatenate([enhancer_y, bg_y, tss_y])
 
     elif num_classes == 5:
         enhancer_X, enhancer_y = build_histone_tensors(

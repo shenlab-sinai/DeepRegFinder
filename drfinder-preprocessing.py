@@ -204,7 +204,7 @@ def main():
                                 output_folder, bkg_samples=bkg_samples, 
                                 nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
         elif num_classes == 2:
-            make_tensor_dataset(None, None, None, None, enhancers, None, final_background, 
+            make_tensor_dataset(None, None, None, None, enhancers, unslopped_tss, final_background, 
                     histone_compressed, window_width, number_of_windows, 
                     output_folder, bkg_samples=bkg_samples, 
                     nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
