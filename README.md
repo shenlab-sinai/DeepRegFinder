@@ -16,12 +16,14 @@ Shen Lab Website: http://labs.neuroscience.mssm.edu/project/shen-lab/
 
 Icahn School of Medicine at Mount Sinai, New York, NY, USA
 
-**DeepRegFinder** is a deep learning based program to identify DNA regulatory elements using ChIP-seq. It uses the deep learning framework PyTorch. 
+**DeepRegFinder** is a deep learning based program to identify DNA regulatory elements using ChIP-seq. See our paper on bioRxiv:
+
+- Ramakrishnan, A., Wangensteen, G., Kim, S., Nestler, E. J. & Shen, L. DeepRegFinder: Deep Learning-Based Regulatory Elements Finder. bioRxiv 2021.04.27.441658 (2021) doi:10.1101/2021.04.27.441658.
 
 ## Overview
-Identifying DNA regulatory elements such as enhancers and promoters has always been an important topic in the epigenomics field. Although certain histone marks are known to exhibit characteristic binding patterns at enhancers and promoters, the exact rules to make the call do not exist. Using machine learning models that are trained on known enhancers to predict at other regions using histone mark ChIP-seq data has been found to be the most successful method so far.
+Identifying DNA regulatory elements such as enhancers and promoters has always been an important topic in the epigenomics field. Although certain histone marks are known to exhibit characteristic binding patterns at enhancers and promoters, the exact rules to classify them do not exist. This is where machine learning comes to the rescue. You can train a machine learning model on the ChIP-seq data of the known enhancers and promoters and then use the model to identify them elsewhere. 
 
-Many machine learning algorithms for enhancer identification exist. However, most of them are designed for reproducing results only. It's a hassle to apply them to your own data considering the most time-consuming part of a machine learning project is often data cleaning and formatting. We developed DeepRegFinder to be a modularized pipeline for you to build training data from aligned reads and genomic annotation easily so that you can use them to train models and make predictions. DeepRegFinder uses two deep neural networks: convolutional neural net (CNN) and recurrent neural net (RNN).
+Many machine learning algorithms for enhancer identification exist. However, most of them are designed for reproducing results on paper only. It's a hassle to apply them to your own data considering the most time-consuming part of a machine learning project is often data cleaning and formatting. We developed DeepRegFinder to be a modularized pipeline for you to build training data from aligned reads and genomic annotation easily so that you can use them to train models and make predictions. DeepRegFinder uses two deep neural networks: convolutional neural net (CNN) and recurrent neural net (RNN).
 
 ### Benchmarks
 DeepRegFinder predicts one of five classes for a genomic region: poised enhancer (PE), active enhancer (AE), poised promoter (PT), active promoter (AT) and background (Bdg). Mean average precision (mAP) of the four non-background classes is used as the model evaluation metric. DeepRegFinder compares favorably with two established methods on three different cell types (mAP with 95% confidence intervals):
