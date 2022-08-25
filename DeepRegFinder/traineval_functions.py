@@ -45,7 +45,6 @@ def plot_pr(precision, recall, average_precision, n_classes):
                          'teal', 'olive'])
 
     for i, color in zip(range(n_classes), colors):
-        print(i)
         l, = plt.plot(recall[i], precision[i], color=color, lw=2)
         lines.append(l)
         print(class_lookup[i])
