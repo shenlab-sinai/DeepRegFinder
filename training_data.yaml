@@ -15,5 +15,6 @@ check_iters: 20 # number of iters in-between model performance checks.
 confus_mat_name: 'test_confusion_matrix' # Name of confusion matrix output
 pred_out_name: 'test_preds.csv' # prediction output file.
 summary_out_name: 'test_summary.txt' # test summary TXT.
+precision_recall_curve_name: 'pr_curve'
 
 data_augment: False  # leave it as is, not fully tested.

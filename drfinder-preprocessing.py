@@ -29,6 +29,10 @@ def main():
 
     #Data for Genome Processing (Making 100 kb windowed bed + saf + bg windowed)
     genome = dataMap['genome']
+    train_chrom = dataMap['train_chrom']
+    val_chrom = dataMap['val_chrom']
+    test_chrom = dataMap['test_chrom']
+
     try:
         # genome_size_file expected format:
         # chr1<TAB>1234567
@@ -200,12 +204,14 @@ def main():
         
             make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss, 
                                 enhancers, unslopped_tss, final_background, 
-                                histone_compressed, window_width, number_of_windows, 
+                                histone_compressed, train_chrom, val_chrom, test_chrom, window_width, number_of_windows, 
                                 output_folder, bkg_samples=bkg_samples, 
                                 nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
-        elif num_classes == 2:
+
+        elif num_classes == 2 or num_classes == 3:
+
             make_tensor_dataset(None, None, None, None, enhancers, unslopped_tss, final_background, 
-                    histone_compressed, window_width, number_of_windows, 
+                    histone_compressed, train_chrom, val_chrom, test_chrom, window_width, number_of_windows, 
                     output_folder, bkg_samples=bkg_samples, 
                     nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
 

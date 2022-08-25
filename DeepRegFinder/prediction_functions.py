@@ -18,7 +18,6 @@ class WholeGenomeDataset(Dataset):
     def __init__(self, wgbc_tsv, mean, std, norm=True, half_size=10):
         # self.wgbc_df = pd.read_table(wgbc_tsv, low_memory=True)
         self.wgbc_df = pd.read_table(wgbc_tsv)
-        # import pdb; pdb.set_trace()
         chroms = self.wgbc_df['#Chr'].unique().tolist()
         self.wgbc_df = self.wgbc_df.set_index('#Chr')
         # build a list for chromosome names and their accumulate lens.
@@ -44,7 +43,6 @@ class WholeGenomeDataset(Dataset):
         prev_alen = 0
         for name, alen in self.chr_name_alen:
             if idx < alen:
-                # import pdb; pdb.set_trace()
                 return name, idx - prev_alen
             prev_alen = alen
 
@@ -214,15 +212,21 @@ def post_merge_blocks(block_list, window_width=100, number_of_windows=20, num_cl
     # Collect block lists for different classes separately 
     # and create BedTool objects from them.
     block_dict = {}
-    if num_classes == 5:
+
+    if num_classes == 2:
+        class_lookup = {0: 'Background', 1: 'Enhancer'}
+        rgb_lookup = {0: '160,160,160', 1: '255,51,51'}
+
+    elif num_classes == 3:
+        class_lookup = {0: 'Background', 1: 'TSS', 2: 'Enhancer'}
+        rgb_lookup = {0: '160,160,160', 1: '255,51,51', 2: '255,51,255'} 
+
+    elif num_classes == 5:
         class_lookup = {0: 'Poised_Enh', 1: 'Active_Enh', 2: 'Poised_TSS', 
                         3: 'Active_TSS', 4: 'Background'}
         rgb_lookup = {0: '153,255,51', 1: '255,51,51', 2: '51,51,255', 
                       3: '255,51,255', 4: '160,160,160'}
 
-    elif num_classes == 2:
-        class_lookup = {0: 'Background', 1: 'Enhancer'}
-        rgb_lookup = {0: '160,160,160', 1: '255,51,51'}  
     half_width = window_width*number_of_windows//2
     # counter = 0
     for block in block_list:

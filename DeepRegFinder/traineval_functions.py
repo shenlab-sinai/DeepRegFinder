@@ -1,3 +1,4 @@
+from sklearn.metrics import precision_recall_fscore_support
 import itertools as itls
 from scipy import interp 
 from sklearn.preprocessing import label_binarize
@@ -15,41 +16,40 @@ import sys
 """
 Collection of helper functions for validation and accuracy
 """
-__all__ = ['plot_confusion_matrix', 'normalize_dat_dict', 'train_loop', 
-           'prediction_loop', 'mAP_conf_interval']
+__all__ = ['plot_confusion_matrix', 'normalize_dat_dict', 'train_loop', 'compute_precision',
+           'prediction_loop', 'mAP_conf_interval', 'get_statistics', 'plot_pr']
 
+def plot_pr(precision, recall, average_precision, n_classes):
 
-def plot_pr(precision, recall, average_precision):
+    """ 
+    Given a dictionary of preciscion 
+    and recall values for each class, uses 
+    pyplot to plot the PR curve for each class
     """
-    Given a dictionary of preciscion and recall values for each class, uses 
-    pyplot to plot the PR curve for each class as well as the micro-averaged 
-    PR curve and iso-f1 curves. 
-    """
-    colors = itls.cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue', 
-                         'teal', 'olive'])
 
-    plt.figure(figsize=(7, 8))
-    f_scores = np.linspace(0.2, 0.8, num=4)
+    plt.figure(figsize=(7, 8)) 
     lines = []
     labels = []
-    for f_score in f_scores:
-        x = np.linspace(0.01, 1)
-        y = f_score * x / (2 * x - f_score)
-        l, = plt.plot(x[y >= 0], y[y >= 0], color='gray', alpha=0.2)
-        plt.annotate('f1={0:0.1f}'.format(f_score), xy=(0.9, y[45] + 0.02))
 
-    lines.append(l)
-    labels.append('iso-f1 curves')
-    l, = plt.plot(recall["micro"], precision["micro"], color='gold', lw=2)
-    lines.append(l)
-    labels.append('micro-average Precision-recall (area = {0:0.2f})'
-                  ''.format(average_precision["micro"]))
-    class_lookup = {0: "Poised Enhancer", 1: "Active Enhancer", 2: "TSS", 
-                    3: "Background"}
-    for i, color in zip(range(4), colors):
+    if n_classes == 2:
+        class_lookup = {0: "Background", 1: "Enhancer"}
+        colors = itls.cycle(['navy', 'turquoise', 'darkorange'])
+
+    elif n_classes == 3:
+        class_lookup = {0: "Background", 1: "TSS", 2: "Enhancer"}
+        colors = itls.cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue'])    
+
+    elif n_classes == 5:
+        class_lookup = {0: "PE", 1: "AE", 2: "PT", 3: "AT", 4: "Bgd"}
+        colors = itls.cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue',
+                         'teal', 'olive'])
+
+    for i, color in zip(range(n_classes), colors):
+        print(i)
         l, = plt.plot(recall[i], precision[i], color=color, lw=2)
         lines.append(l)
-        labels.append('Precision-recall for class {0} (area = {1:0.2f})'
+        print(class_lookup[i])
+        labels.append('Precision-recall for {0} (area = {1:0.2f})'
                       ''.format(class_lookup[i], average_precision[i]))
 
     fig = plt.gcf()
@@ -60,6 +60,7 @@ def plot_pr(precision, recall, average_precision):
     plt.ylabel('Precision')
     plt.title('Precision-Recall curves')
     plt.legend(lines, labels, loc=(0, -.38), prop=dict(size=14))
+
 
 def plot_rocs(fpr, tpr, roc_auc):
     """
@@ -103,8 +104,8 @@ def plot_confusion_matrix(cm, norm=True, n_classes=5):
     cm_ = cm.copy()
     if norm:  # normalize each target class.
         cm = cm.astype('float')/cm.sum(axis=1)[:, np.newaxis]
-    if n_classes == 2 :
-        classes = ['Background', 'Enhancer']
+    if n_classes == 3 :
+        classes = ['Background', 'TSS', 'Enhancer']
     elif n_classes == 5:
         classes = ['Poised Enhancer', 'Active Enhancer', 
                    'Poised TSS', 'Active TSS', 'Background']
@@ -130,6 +131,12 @@ def plot_confusion_matrix(cm, norm=True, n_classes=5):
     df = pd.DataFrame(cm_, columns=classes, index=classes)
     return df
 
+def compute_precision(label, score):
+        """Calculate the precision and recall values for each class
+        """
+        precision, recall, fscore, support = precision_recall_fscore_support(label, score)
+        results = {'precision': precision, 'recall': recall}
+        return(results)
 
 def get_statistics(binvals, scores, n_classes=4):
     """
@@ -148,19 +155,12 @@ def get_statistics(binvals, scores, n_classes=4):
         precision[i], recall[i], _ = precision_recall_curve(binvals[:,i], scores[:,i])
         average_precision[i] = average_precision_score(binvals[:, i], scores[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
-    fpr['micro'], tpr['micro'], _ = roc_curve(binvals.ravel(), scores.ravel())
-    roc_auc['micro'] = auc(fpr['micro'], tpr['micro'])
-    precision['micro'], recall['micro'], _ = precision_recall_curve(binvals.ravel(), scores.ravel())
-    average_precision['micro'] = average_precision_score(binvals, scores, average='micro')
     
     all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
     mean_tpr = np.zeros_like(all_fpr)
     for i in range(n_classes):
         mean_tpr += interp(all_fpr, fpr[i], tpr[i])
     mean_tpr /= n_classes
-    fpr['macro'] = all_fpr
-    tpr['macro'] = mean_tpr
-    roc_auc['macro'] = auc(fpr['macro'], tpr['macro'])
     return fpr, tpr, roc_auc, precision, recall, average_precision
 
 """
@@ -270,8 +270,8 @@ def train_loop(model, num_classes, criterion, optimizer, scheduler, device, trai
 
                 if num_classes == 5:
                     val_mAP = np.mean(val_ap[:-1])  # ignore background class.
-                elif num_classes == 2:
-                    val_mAP = np.mean(val_ap)
+                elif num_classes == 2 or num_classes == 3:
+                    val_mAP = np.mean(val_ap[1:])
 
                 avg_train_loss = train_loss/check_iters
                 print('Iter={}, avg train loss: {:.3f}; val loss: {:.3f}, '
@@ -309,7 +309,6 @@ def train_loop(model, num_classes, criterion, optimizer, scheduler, device, trai
                     param_group['lr'] *= .1
                     print('Reduced learning rate to: {}.'.format(
                         param_group['lr']))
-                # import pdb; pdb.set_trace()
             train_loss = .0
             model.train()  # set training state.
     return train_loss, (i + 1) % check_iters, best_mAP
@@ -395,7 +394,7 @@ def prediction_loop(model, num_classes, device, dat_loader, pred_only=False, cri
             return predictions, np.max(probs, axis=1), info_list
 
 
-def mAP_conf_interval(label, score, num_classes=2, bs_samples=1000, 
+def mAP_conf_interval(label, score, num_classes=5, bs_samples=1000, 
                       qs=[.025, .975], seed=12345):
     """Calculate the confidence interval of mAP based on bootstrapping.
     bs_samples ([int]): bootstrap sample size.
@@ -403,9 +402,15 @@ def mAP_conf_interval(label, score, num_classes=2, bs_samples=1000,
     seed ([int]): random seed used for bootstrap.
     """
     if num_classes == 2:
-        binvals = np.array([[1,0] if l==0 else [0, 1] for l in label])
+        binvals = np.array([[1, 0] if l==0 else [0, 1] for l in label])
         apr = average_precision_score(binvals, score, average=None)
-        mAP = np.mean(apr)
+        mAP = np.mean(apr[1:])
+
+    elif num_classes == 3:
+        binvals = label_binarize(label, classes=list(range(num_classes)))
+        apr = average_precision_score(binvals, score, average=None)
+        mAP = np.mean(apr[1:])
+
     elif num_classes == 5:
         binvals = label_binarize(label, classes=list(range(num_classes)))
         apr = average_precision_score(binvals, score, average=None)
@@ -415,22 +420,29 @@ def mAP_conf_interval(label, score, num_classes=2, bs_samples=1000,
     mAP_pool = []
     for _ in range(bs_samples):
         ix = rng.choice(range(len(label)), len(label), replace=True)
-        
+
         if num_classes == 5:
             label_s = label_binarize(label[ix], classes=list(range(num_classes)))
             score_s = score[ix]
             apr_s = average_precision_score(label_s, score_s, average=None)
             mAP_s = np.mean(apr_s[:-1])
-            mAP_pool.append(mAP_s)
+
+        elif num_classes == 3:
+            label_s = label_binarize(label[ix], classes=list(range(num_classes)))
+            score_s = score[ix]
+            apr_s = average_precision_score(label_s, score_s, average=None)
+            mAP_s = np.mean(apr_s[1:])
 
         elif num_classes == 2:
             label_s = np.array([[1,0] if l==0 else [0, 1] for l in label[ix]]) 
             score_s = score[ix]
             apr_s = average_precision_score(label_s, score_s, average=None)
-            mAP_s = np.mean(apr_s)
-            mAP_pool.append(mAP_s)
+            mAP_s = np.mean(apr_s[1:])
 
+        mAP_pool.append(mAP_s)
     mAP_lower, mAP_upper = np.quantile(mAP_pool, q=qs)
         
     return [mAP, mAP_lower, mAP_upper]
+
+
 

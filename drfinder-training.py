@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from DeepRegFinder.traineval_functions import *
+from sklearn.metrics import precision_recall_fscore_support
 from DeepRegFinder.nn_models import create_model
+from sklearn.preprocessing import label_binarize
 import torch
 import torch.nn as nn
 import numpy as np
@@ -9,6 +11,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix 
+from sklearn.preprocessing import LabelBinarizer
 import sys
 import yaml
 import os
@@ -33,19 +36,25 @@ num_classes = dataMap['num_classes']
 train_dataset = d['train']
 val_dataset = d['val']
 test_dataset = d['test']
+
 # Construct dataloaders using weighted sampler.
 batch_size = dataMap['batch_size']
 cpu_threads = dataMap['cpu_threads']
 ys = np.array([ y.item() for _, y in train_dataset])
 yu, yc = np.unique(ys, return_counts=True)
+
 assert yu[-1] - yu[0] + 1 == len(yu), \
        'Expect the unique train labels to be a sequence \
         of [0..{}] but got {}'.format(yu[-1], yu)
 print('Train unique labels: {}'.format(yu))
 print('Train label counts: {}'.format(yc))
+
 # collapse the non-background classes into one for sampling.
 if dataMap['keep_cls_props']:
-    bkg_lab = yu[-1]
+    if num_classes == 5:
+    	bkg_lab = yu[-1]
+    else:
+        bkg_lab = yu[0]
     ys_ = ys.copy()
     ys_[ys==bkg_lab] = 0
     ys_[ys!=bkg_lab] = 1
@@ -56,6 +65,7 @@ if dataMap['keep_cls_props']:
     #!!!!!!!!!!!#
 else:
     ys_, yu_, yc_ = ys, yu, yc
+
 weights = np.zeros_like(ys_, dtype='float')
 for i, f in enumerate(yc_):
     weights[ys_==i] = 1/f
@@ -84,6 +94,7 @@ nb_epoch = dataMap['num_epochs']
 check_iters = dataMap['check_iters']
 train_logs = os.path.join(output_folder, 'train_logs')
 confus_mat_name = dataMap['confus_mat_name']
+precision_recall_curve_name = dataMap['precision_recall_curve_name']
 pred_out_name = dataMap['pred_out_name']
 summary_out_name = dataMap['summary_out_name']
 
@@ -122,10 +133,12 @@ if train_iter > 0:  # remaining iters not yet checked.
         avg_val_loss, val_ap = prediction_loop(
             model, num_classes, device, val_loader, criterion=criterion, 
             histone_list=None, dat_augment=dat_aug)
-        if num_classes == 2:
-            val_mAP = np.mean(val_ap)
+  
+        if num_classes == 2 or num_classes == 3:
+            val_mAP = np.mean(val_ap[1:])
         elif num_classes == 5:
             val_mAP = np.mean(val_ap[:-1])
+
         print('Finally, avg train loss: {:.3f}; val loss: {:.3f}, val mAP: '
               '{:.3f}'.format(train_loss/train_iter, avg_val_loss, val_mAP), 
               end='')
@@ -140,12 +153,29 @@ if train_iter > 0:  # remaining iters not yet checked.
 
 # Evaluate on the test set.
 model.load_state_dict(torch.load(best_model_path))
+
 avg_test_loss, test_ap, test_preds = prediction_loop(
     model, num_classes, device, test_loader, criterion=criterion, 
     histone_list=None, dat_augment=dat_aug, 
     return_preds=True)
+
 truevals, predictions, probs = test_preds
+
 test_mAP = mAP_conf_interval(truevals, probs, num_classes=num_classes, bs_samples=3000)
+
+
+if num_classes == 2:
+        lb = LabelBinarizer()
+        binvals = lb.fit_transform(truevals)
+        binvals = np.hstack((binvals, 1 - binvals))	
+
+elif num_classes == 3 or num_classes == 5:
+	binvals = label_binarize(truevals, classes=list(range(num_classes)))
+
+fpr, tpr, roc_auc, precision, recall, average_precision = get_statistics(binvals, probs, n_classes=num_classes)
+
+precision_recall = compute_precision(truevals, predictions)
+precision_val, recall_val  = precision_recall['precision'], precision_recall['recall']
 
 
 def _test_set_summary(fh):
@@ -154,20 +184,57 @@ def _test_set_summary(fh):
     print('='*10, 'On test set', '='*10, file=fh)
     print('avg test loss={:.3f} and mAP={:.3f}, 95% CI [{:.3f},{:.3f}]'.format(
         avg_test_loss, test_mAP[0], test_mAP[1], test_mAP[2]), file=fh)
-    if num_classes == 5:
+
+
+    if num_classes == 2:
+        print('AP for each class: Background={:.3f},  Enhancer={:.3f}, '.format(
+                test_ap[0], test_ap[1]), 
+              file=fh
+             )   
+
+        print('Precision for each class: Background={:.3f}, Enhancer={:.3f}'.format(
+                precision_val[0], precision_val[1]), 
+              file=fh)
+
+        print('Recall for each class: Background={:.3f}, Enhancer={:.3f}'.format(
+                recall_val[0], recall_val[1]), 
+              file=fh)
+
+
+    elif num_classes == 3:
+
+        print('AP for each class: Background={:.3f}, TSS={:.3f}, Enhancer={:.3f}, '.format(
+                test_ap[0], test_ap[1], test_ap[2]), 
+              file=fh
+             )   
+
+        print('Precision for each class: Background={:.3f}, TSS={:.3f}, Enhancer={:.3f}'.format(
+                precision_val[0], precision_val[1], precision_val[2]), 
+              file=fh)
+
+        print('Recall for each class: Background={:.3f}, TSS={:.3f}, Enhancer={:.3f}'.format(
+                recall_val[0], recall_val[1], recall_val[2]), 
+              file=fh)
+
+
+    elif num_classes == 5:
 
         print('AP for each class: poised enh={:.3f}, active enh={:.3f}, '
               'poised tss={:.3f}, active tss={:.3f}'.format(
-                test_ap[0], test_ap[1], test_ap[2], test_ap[3]), 
+                test_ap[0], test_ap[1], test_ap[2], test_ap[3]),
+
               file=fh
              )
 
-    elif num_classes == 2:
+        print('Precision for each class: PE={:.3f}, AE={:.3f}, PT={:.3f}, AT={:.3f}, Bgd={:.3f}'.format(
+                precision_val[0], precision_val[1], precision_val[2], precision_val[3], precision_val[4]), 
+              file=fh)
 
-        print('AP for each class: Background={:.3f}, Enhancer={:.3f}, '.format(
-                test_ap[0], test_ap[1]), 
-              file=fh
-             ) 
+        print('Recall for each class: PE={:.3f}, AE={:.3f}, PT={:.3f}, AT={:.3f}, Bgd={:.3f}'.format(
+                recall_val[0], recall_val[1], recall_val[2], recall_val[3], recall_val[4]), 
+              file=fh)
+
+
 _test_set_summary(sys.stdout)
 with open(os.path.join(output_folder, summary_out_name), 'w') as fh:
     _test_set_summary(fh)
@@ -175,17 +242,29 @@ with open(os.path.join(output_folder, summary_out_name), 'w') as fh:
 # Output figures and other stats.
 # confusion matrix.
 m = confusion_matrix(truevals, predictions)
-cm = plot_confusion_matrix(m, norm=True, n_classes=num_classes)
+cm = plot_confusion_matrix(m, norm=False, n_classes=num_classes)
 plt.savefig(os.path.join(output_folder, confus_mat_name + '.png'))
 cm.to_csv(os.path.join(output_folder, confus_mat_name + '.csv'))
+
+
+# precision-recall curve
+pr_curve = plot_pr(precision, recall, average_precision, num_classes)
+plt.savefig(os.path.join(output_folder, precision_recall_curve_name + '.png'))
+
 # test set predictions.
 df = np.stack([truevals, predictions], axis=1)
 df = np.concatenate([df, probs], axis=1)
+
 if num_classes == 2:
-    col_names = ['label', 'pred', 'Enhancer', 'Background']
-else:
+    col_names = ['label', 'pred', 'Background', 'Enhancer']
+
+elif num_classes == 3:
+    col_names = ['label', 'pred', 'Background', 'TSS', 'Enhancer']
+
+elif num_classes == 5:
     col_names = ['label', 'pred', 'poised_enh', 'active_enh', 
              'poised_tss', 'active_tss', 'background']
+
 df = pd.DataFrame(df, columns=col_names).round(3)
 df = df.astype({'label': 'int', 'pred': 'int'})
 df.to_csv(os.path.join(output_folder, pred_out_name), index=False)
