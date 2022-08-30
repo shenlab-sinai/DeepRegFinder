@@ -451,7 +451,7 @@ def positive_negative_clustering(sense_file, antisense_file, groseq_file=None):
         if c0c > c1c:
             return 1 - clustering.labels_
         return clustering.labels_
-
+    
     if sense_file is not None:
         sense_labels = binary_clustering(sense_file)
         antisense_labels = binary_clustering(antisense_file)
@@ -459,9 +459,21 @@ def positive_negative_clustering(sense_file, antisense_file, groseq_file=None):
                                        antisense_labels)
         negative_labs = np.logical_and(np.logical_not(sense_labels), 
                                        np.logical_not(antisense_labels))
+
+        coordinates = pd.read_csv(sense_file, delim_whitespace=True)	
+        positive_labs = pd.DataFrame(data={'positive_labs': positive_labs, 
+				'coords': coordinates.iloc[:, 1]})
+        negative_labs = pd.DataFrame(data={'negative_labs': negative_labs, 
+				'coords': coordinates.iloc[:, 1]})
     else:
+
         positive_labs = binary_clustering(groseq_file)
         negative_labs = np.logical_not(positive_labs)
+        
+        coordinates = pd.read_csv(groseq_file, delim_whitespace=True)   
+        positive_labs = pd.DataFrame(data={'positive_labs': positive_labs, 'coords': coordinates.iloc[:, 1]})
+        negative_labs = pd.DataFrame(data={'negative_labs': negative_labs, 'coords': coordinates.iloc[:, 1]})
+        print(positive_labs)
     return positive_labs, negative_labs
 
 
@@ -482,8 +494,16 @@ def build_histone_tensors(region_bed, hist_cnt_file, positives, negatives,
     if chrom_set:
         regions = BedTool(region_bed)
         regions = regions.filter(lambda p: p.chrom in chrom_set) 
+        if positives is not None:
+            positives, negatives = positives[positives['coords'].isin(chrom_set)], \
+				negatives[negatives['coords'].isin(chrom_set)]
+            positives, negatives = np.array(positives['positive_labs']), \
+				np.array(negatives['negative_labs'])
+            print(positives)
     else:
+        
         regions = BedTool(region_bed)
+
     if is_bkg and not is_enhancer_binary:
         # merge regions to reduce #queries to improve performance.
         # multiprocessing failed because tabix fetch can't be pickled.
