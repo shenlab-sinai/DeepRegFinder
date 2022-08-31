@@ -473,7 +473,6 @@ def positive_negative_clustering(sense_file, antisense_file, groseq_file=None):
         coordinates = pd.read_csv(groseq_file, delim_whitespace=True)   
         positive_labs = pd.DataFrame(data={'positive_labs': positive_labs, 'coords': coordinates.iloc[:, 1]})
         negative_labs = pd.DataFrame(data={'negative_labs': negative_labs, 'coords': coordinates.iloc[:, 1]})
-        print(positive_labs)
     return positive_labs, negative_labs
 
 
@@ -499,10 +498,11 @@ def build_histone_tensors(region_bed, hist_cnt_file, positives, negatives,
 				negatives[negatives['coords'].isin(chrom_set)]
             positives, negatives = np.array(positives['positive_labs']), \
 				np.array(negatives['negative_labs'])
-            print(positives)
+           
     else:
         
         regions = BedTool(region_bed)
+        regions = regions.filter(lambda p: p.chrom in chrom_set)
 
     if is_bkg and not is_enhancer_binary:
         # merge regions to reduce #queries to improve performance.
@@ -578,13 +578,10 @@ def build_histone_tensors(region_bed, hist_cnt_file, positives, negatives,
 
 """
 2 cls
-bkg: 0
-enhancer: 1
+bkg: 0, enhancer: 1
 
 3 cls
-bkg: 0
-tss: 1
-enhancer: 2
+bkg: 0, tss: 1, enhancer: 2
 
 5 cls
 poised enhancer: 0
@@ -608,235 +605,133 @@ def make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss,
     # Build tensors for enhancer vs background.
     if num_classes == 2:
 
-	# Enhancer
-        enhancer_X_train, enhancer_y_train = build_histone_tensors(
-            enhancer, hist_cnt_file, None, None, 
-            window_width, number_of_windows, train_chrom, is_bkg=True, 
-            is_enhancer_binary=True,
-            samples=None, out_bed=None,
-            nz_cutoff=nz_cutoff, base_label=1)
+        arg_dict = {"region_bed": enhancer, "hist_cnt_file": hist_cnt_file,
+                    "positives": None, "negatives": None, "window_width": window_width,        
+                    "number_of_windows": number_of_windows, "is_bkg": True,
+                    "is_enhancer_binary": True, "samples": None, "nz_cutoff": nz_cutoff,         
+                    "out_bed": None, "base_label": 1}
 
-        enhancer_X_val, enhancer_y_val = build_histone_tensors(
-            enhancer, hist_cnt_file, None, None, 
-            window_width, number_of_windows, val_chrom, is_bkg=True, 
-            is_enhancer_binary=True,
-            samples=None, out_bed=None,
-            nz_cutoff=nz_cutoff, base_label=1)	
+        enh_X_train, enh_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+        enh_X_val, enh_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+        enh_X_test, enh_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
 
-        enhancer_X_test, enhancer_y_test = build_histone_tensors(
-            enhancer, hist_cnt_file, None, None, 
-            window_width, number_of_windows, test_chrom, is_bkg=True, 
-            is_enhancer_binary=True,
-            samples=None, out_bed=None,
-            nz_cutoff=nz_cutoff, base_label=1)
-        
-        print("Made enhancer histone tensor")
+        print("Made Enhancer histone tensor")
 
-	# Background
-        bkg_bed = os.path.join(bg_out_folder, 'used_bg_sorted.bed.gz')
-        bg_X_train, bg_y_train = build_histone_tensors(
-            background, hist_cnt_file, None, None, 
-            window_width, number_of_windows, train_chrom, is_bkg=True, 
-            is_enhancer_binary=False,
-            samples=bkg_samples, nz_cutoff=nz_cutoff, 
-            out_bed=bkg_bed, base_label=0)
+        arg_dict = {"region_bed": background, "hist_cnt_file": hist_cnt_file,
+                    "positives": None, "negatives": None, "window_width": window_width,        
+                    "number_of_windows": number_of_windows, "is_bkg": True,
+                    "is_enhancer_binary": False, "samples": None, "nz_cutoff": nz_cutoff,         
+                    "out_bed": None, "base_label": 0}
 
-        bg_X_val, bg_y_val = build_histone_tensors(
-            background, hist_cnt_file, None, None, 
-            window_width, number_of_windows, val_chrom, is_bkg=True, 
-            is_enhancer_binary=False,
-            samples=bkg_samples, nz_cutoff=nz_cutoff, 
-            out_bed=bkg_bed, base_label=0)
+        bg_X_train, bg_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+        bg_X_val, bg_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+        bg_X_test, bg_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
 
-        bg_X_test, bg_y_test = build_histone_tensors(
-            background, hist_cnt_file, None, None, 
-            window_width, number_of_windows, test_chrom, is_bkg=True, 
-            is_enhancer_binary=False,
-            samples=bkg_samples, nz_cutoff=nz_cutoff, 
-            out_bed=bkg_bed, base_label=0)
+        print("Made Background histone tensor")
 
-
-        print("Made background histone tensor")
-
-
-        # Concat enhancer and bkg and then split into train-val-test.
-        train_X = np.concatenate([enhancer_X_train, bg_X_train])
-        train_y = np.concatenate([enhancer_y_train, bg_y_train])
-
-        val_X = np.concatenate([enhancer_X_val, bg_X_val])
-        val_y = np.concatenate([enhancer_y_val, bg_y_val])
-        test_X = np.concatenate([enhancer_X_test, bg_X_test])
-        test_y = np.concatenate([enhancer_y_test, bg_y_test])
-
+        # Concat enhancer and bkg
+        train_X = np.concatenate([enh_X_train, bg_X_train])
+        train_y = np.concatenate([enh_y_train, bg_y_train])
+        val_X = np.concatenate([enh_X_val, bg_X_val])
+        val_y = np.concatenate([enh_y_val, bg_y_val])
+        test_X = np.concatenate([enh_X_test, bg_X_test])
+        test_y = np.concatenate([enh_y_test, bg_y_test])
 
 
     # Build tensors for enhancer, TSS and background.
     elif num_classes == 3:
 
-	# Enhancer
-        enh_bed_test = os.path.join(bg_out_folder, 'enh_test.bed.gz')
-        enhancer_X_train, enhancer_y_train = build_histone_tensors(
-            enhancer, hist_cnt_file, None, None, 
-            window_width, number_of_windows, train_chrom,is_bkg=True, 
-            is_enhancer_binary=True, 
-            samples=None, out_bed=None,
-            nz_cutoff=nz_cutoff, base_label=2)
+        arg_dict = {"region_bed": enhancer, "hist_cnt_file": hist_cnt_file,
+                    "positives": None, "negatives": None, "window_width": window_width, 
+                    "number_of_windows": number_of_windows, "is_bkg": True,
+                    "is_enhancer_binary": True, "samples": None, "nz_cutoff": nz_cutoff, 
+                    "out_bed": None, "base_label": 2}
 
-        enhancer_X_val, enhancer_y_val = build_histone_tensors(
-            enhancer, hist_cnt_file, None, None,
-            window_width, number_of_windows, val_chrom,is_bkg=True,
-            is_enhancer_binary=True, 
-            samples=None, out_bed=None,
-            nz_cutoff=nz_cutoff, base_label=2)
+        enh_X_train, enh_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+        enh_X_val, enh_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+        enh_X_test, enh_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
 
-        enhancer_X_test, enhancer_y_test = build_histone_tensors(
-            enhancer, hist_cnt_file, None, None,
-            window_width, number_of_windows,test_chrom, is_bkg=True,
-            is_enhancer_binary=True, 
-            samples=None, out_bed=enh_bed_test,
-            nz_cutoff=nz_cutoff, base_label=2)
-
-
-	
         print("Made enhancer histone tensor")
-        
-	# Background
-        bkg_bed_test = os.path.join(bg_out_folder, 'bkg_test.bed.gz')
-        
-        bg_X_train, bg_y_train = build_histone_tensors(
-            background, hist_cnt_file, None, None, 
-            window_width, number_of_windows, train_chrom, is_bkg=True, 
-            is_enhancer_binary=False, 
-            samples=bkg_samples, nz_cutoff=nz_cutoff, 
-            out_bed=None, base_label=0)
+	
+        arg_dict = {"region_bed": background, "hist_cnt_file": hist_cnt_file,
+                    "positives": None, "negatives": None, "window_width": window_width,        
+                    "number_of_windows": number_of_windows, "is_bkg": True,
+                    "is_enhancer_binary": False, "samples": bkg_samples, "nz_cutoff": nz_cutoff,         
+                    "out_bed": None, "base_label": 0}
 
-        bg_X_val, bg_y_val = build_histone_tensors(
-            background, hist_cnt_file, None, None, 
-            window_width, number_of_windows, val_chrom, is_bkg=True, 
-            is_enhancer_binary=False, 
-            samples=bkg_samples, nz_cutoff=nz_cutoff, 
-            out_bed=None, base_label=0)
+        bg_X_train, bg_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+        bg_X_val, bg_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+        bg_X_test, bg_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
 
-        bg_X_test, bg_y_test = build_histone_tensors(
-            background, hist_cnt_file, None, None, 
-            window_width, number_of_windows, test_chrom,is_bkg=True, 
-            is_enhancer_binary=False, 
-            samples=bkg_samples, nz_cutoff=nz_cutoff, 
-            out_bed=bkg_bed_test, base_label=0)
-
-
-	# TSS
         print("Made background histone tensor")
-        tss_bed_test = os.path.join(bg_out_folder, 'tss_test.bed.gz')
-        tss_X_train, tss_y_train = build_histone_tensors(
-            tss, hist_cnt_file, None, None, 
-            window_width, number_of_windows, train_chrom, is_bkg=False, 
-            is_enhancer_binary=False,  samples=None, out_bed=None,
-            nz_cutoff=nz_cutoff, base_label=1)
+        
+        arg_dict = {"region_bed": tss, "hist_cnt_file": hist_cnt_file,
+                    "positives": None, "negatives": None, "window_width": window_width,        
+                    "number_of_windows": number_of_windows, "is_bkg": False,
+                    "is_enhancer_binary": False, "samples": None, "nz_cutoff": nz_cutoff,         
+                    "out_bed": None, "base_label": 1}
 
-        tss_X_val, tss_y_val = build_histone_tensors(
-            tss, hist_cnt_file, None, None,
-            window_width, number_of_windows, val_chrom,is_bkg=False,
-            is_enhancer_binary=False, samples=None, out_bed=None,
-            nz_cutoff=nz_cutoff, base_label=1)
-
-        tss_X_test, tss_y_test = build_histone_tensors(
-            tss, hist_cnt_file, None, None,
-            window_width, number_of_windows, test_chrom,is_bkg=False,
-            is_enhancer_binary=False, samples=None, out_bed=tss_bed_test,
-            nz_cutoff=nz_cutoff, base_label=1)
-
+        tss_X_train, tss_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+        tss_X_val, tss_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+        tss_X_test, tss_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
 
         print("Made tss histone tensor")   
 
-        # Concat enhancer and bkg and then split into train-val-test.
-        train_X = np.concatenate([enhancer_X_train, bg_X_train, tss_X_train])
-        train_y = np.concatenate([enhancer_y_train, bg_y_train, tss_y_train])
-
-        val_X = np.concatenate([enhancer_X_val, bg_X_val, tss_X_val])
-        val_y = np.concatenate([enhancer_y_val, bg_y_val, tss_y_val])
-        test_X = np.concatenate([enhancer_X_test, bg_X_test, tss_X_test])
-        test_y = np.concatenate([enhancer_y_test, bg_y_test, tss_y_test])
-
+        # Concat enhancer, tss and bkg 
+        train_X = np.concatenate([enh_X_train, bg_X_train, tss_X_train])
+        train_y = np.concatenate([enh_y_train, bg_y_train, tss_y_train])
+        val_X = np.concatenate([enh_X_val, bg_X_val, tss_X_val])
+        val_y = np.concatenate([enh_y_val, bg_y_val, tss_y_val])
+        test_X = np.concatenate([enh_X_test, bg_X_test, tss_X_test])
+        test_y = np.concatenate([enh_y_test, bg_y_test, tss_y_test])
 
 
     elif num_classes == 5:
-	# Enhancers
-        enhancer_X_train, enhancer_y_train = build_histone_tensors(
-            enhancer, hist_cnt_file, positive_enh, negative_enh, 
-            window_width, number_of_windows, train_chrom,is_bkg=False, 
-            is_enhancer_binary=False,
-            nz_cutoff=nz_cutoff, base_label=0)
 
-        enhancer_X_val, enhancer_y_val = build_histone_tensors(
-            enhancer, hist_cnt_file, positive_enh, negative_enh, 
-            window_width, number_of_windows, val_chrom,is_bkg=False, 
-            is_enhancer_binary=False,
-            nz_cutoff=nz_cutoff, base_label=0)
+        arg_dict = {"region_bed": enhancer, "hist_cnt_file": hist_cnt_file,
+                    "positives": positive_enh, "negatives": negative_enh, "window_width": window_width,        
+                    "number_of_windows": number_of_windows, "is_bkg": False,
+                    "is_enhancer_binary": False, "nz_cutoff": nz_cutoff,         
+                    "out_bed": None, "base_label": 0}
 
-        enhancer_X_test, enhancer_y_test = build_histone_tensors(
-            enhancer, hist_cnt_file, positive_enh, negative_enh, 
-            window_width, number_of_windows, test_chrom,is_bkg=False, 
-            is_enhancer_binary=False,
-            nz_cutoff=nz_cutoff, base_label=0)
+        enh_X_train, enh_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+        enh_X_val, enh_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+        enh_X_test, enh_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
+    
+        print("Made Enhancer histone tensor")
+
 	
-	# TSS
-        tss_X_train, tss_y_train = build_histone_tensors(
-            tss, hist_cnt_file, positive_tss, negative_tss,
-            window_width, number_of_windows, train_chrom,is_bkg=False,
-            is_enhancer_binary=False,
-            nz_cutoff=nz_cutoff, base_label=2)
+        arg_dict = {"region_bed": tss, "hist_cnt_file": hist_cnt_file,
+                    "positives": positive_tss, "negatives": negative_tss, "window_width": window_width,        
+                    "number_of_windows": number_of_windows, "is_bkg": False,
+                    "is_enhancer_binary": False, "nz_cutoff": nz_cutoff,         
+                    "out_bed": None, "base_label": 2}
 
-        tss_X_val, tss_y_val = build_histone_tensors(
-            tss, hist_cnt_file, positive_tss, negative_tss,
-            window_width, number_of_windows, val_chrom,is_bkg=False,
-            is_enhancer_binary=False,
-            nz_cutoff=nz_cutoff, base_label=2)
+        tss_X_train, tss_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+        tss_X_val, tss_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+        tss_X_test, tss_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
 
-        tss_X_test, tss_y_test = build_histone_tensors(
-            tss, hist_cnt_file, positive_tss, negative_tss,
-            window_width, number_of_windows, test_chrom,is_bkg=False,
-            is_enhancer_binary=False,
-            nz_cutoff=nz_cutoff, base_label=2)
+        print("Made TSS histone tensor")
 
+        arg_dict = {"region_bed": background, "hist_cnt_file": hist_cnt_file,
+                    "positives": None, "negatives": None, "window_width": window_width,        
+                    "number_of_windows": number_of_windows, "is_bkg": True,
+                    "is_enhancer_binary": False, "nz_cutoff": nz_cutoff,         
+                    "out_bed": None, "base_label": 4, "samples": bkg_samples}
 
-	# Background
-        bkg_bed = os.path.join(bg_out_folder, 'used_bg_sorted.bed.gz')
-
-        bg_X_train, bg_y_train = build_histone_tensors(
-            background, hist_cnt_file, None, None,
-            window_width, number_of_windows, train_chrom,is_bkg=True,
-            is_enhancer_binary=False,
-            samples=bkg_samples, nz_cutoff=nz_cutoff,
-            out_bed=bkg_bed, base_label=4)
-
-        bg_X_val, bg_y_val = build_histone_tensors(
-            background, hist_cnt_file, None, None,
-            window_width, number_of_windows, val_chrom,is_bkg=True,
-            is_enhancer_binary=False,
-            samples=bkg_samples, nz_cutoff=nz_cutoff,
-            out_bed=bkg_bed, base_label=4)
-
-
-        bg_X_test, bg_y_test = build_histone_tensors(
-            background, hist_cnt_file, None, None,
-            window_width, number_of_windows, test_chrom,is_bkg=True,
-            is_enhancer_binary=False,
-            samples=bkg_samples, nz_cutoff=nz_cutoff,
-            out_bed=bkg_bed, base_label=4)
-
+        bg_X_train, bg_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+        bg_X_val, bg_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+        bg_X_test, bg_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
 
         print("Made background histone tensor")
         
         # Concat enhancer and bkg and then split into train-val-test.
-        train_X = np.concatenate([enhancer_X_train, bg_X_train, tss_X_train])
-        train_y = np.concatenate([enhancer_y_train, bg_y_train, tss_y_train])
-
-        val_X = np.concatenate([enhancer_X_val, bg_X_val, tss_X_val])
-        val_y = np.concatenate([enhancer_y_val, bg_y_val, tss_y_val])
-        test_X = np.concatenate([enhancer_X_test, bg_X_test, tss_X_test])
-        test_y = np.concatenate([enhancer_y_test, bg_y_test, tss_y_test])
-
+        train_X = np.concatenate([enh_X_train, bg_X_train, tss_X_train])
+        train_y = np.concatenate([enh_y_train, bg_y_train, tss_y_train])
+        val_X = np.concatenate([enh_X_val, bg_X_val, tss_X_val])
+        val_y = np.concatenate([enh_y_val, bg_y_val, tss_y_val])
+        test_X = np.concatenate([enh_X_test, bg_X_test, tss_X_test])
+        test_y = np.concatenate([enh_y_test, bg_y_test, tss_y_test])
 
     train_X_t, train_y_t = torch.from_numpy(train_X).float(), torch.from_numpy(train_y).long()
     val_X_t, val_y_t = torch.from_numpy(val_X).float(), torch.from_numpy(val_y).long()
