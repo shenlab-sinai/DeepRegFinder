@@ -620,7 +620,7 @@ def make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss,
         arg_dict = {"region_bed": background, "hist_cnt_file": hist_cnt_file,
                     "positives": None, "negatives": None, "window_width": window_width,        
                     "number_of_windows": number_of_windows, "is_bkg": True,
-                    "is_enhancer_binary": False, "samples": None, "nz_cutoff": nz_cutoff,         
+                    "is_enhancer_binary": False, "samples": bkg_samples, "nz_cutoff": nz_cutoff,         
                     "out_bed": None, "base_label": 0}
 
         bg_X_train, bg_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
