@@ -17,7 +17,7 @@ import sys
 Collection of helper functions for validation and accuracy
 """
 __all__ = ['plot_confusion_matrix', 'normalize_dat_dict', 'train_loop', 'compute_precision',
-           'prediction_loop', 'mAP_conf_interval', 'get_statistics', 'plot_pr']
+           'prediction_loop', 'mAP_conf_interval', 'get_statistics', 'plot_pr', 'plot_rocs']
 
 def plot_pr(precision, recall, average_precision, n_classes):
 
@@ -60,28 +60,29 @@ def plot_pr(precision, recall, average_precision, n_classes):
     plt.legend(lines, labels, loc=(0, -.38), prop=dict(size=14))
 
 
-def plot_rocs(fpr, tpr, roc_auc):
+def plot_rocs(fpr, tpr, roc_auc, n_classes):
     """
-    Given dictionaries of true positive rate and falce positive rates for each 
+    Given dictionaries of true positive rate and false positive rates for each 
     class & roc_auc values for each class, plots micro and macro averaged ROC 
     curves as well as the curve for each class. 
     """
     plt.figure()
     lw=2
-    plt.plot(fpr['micro'], tpr['micro'],
-             label='micro-average ROC curve (area = {0:0.2f})'
-                   ''.format(roc_auc['micro']),
-             color='deeppink', linestyle=':', linewidth=4)
 
-    plt.plot(fpr['macro'], tpr['macro'],
-             label='macro-average ROC curve (area = {0:0.2f})'
-                   ''.format(roc_auc['macro']),
-             color='navy', linestyle=':', linewidth=4)
-    class_lookup = {0: "Poised Enhancer", 1: "Active Enhancer", 2: "TSS", 
-                    3: "Background"}
+    if n_classes == 2:
+        class_lookup = {0: "Background", 1: "Enhancer"}
+        colors = itls.cycle(['navy', 'turquoise', 'darkorange'])
 
-    colors = itls.cycle(['aqua', 'darkorange', 'cornflowerblue', 'olive'])
-    for i, color in zip(range(4), colors):
+    elif n_classes == 3:
+        class_lookup = {0: "Background", 1: "TSS", 2: "Enhancer"}
+        colors = itls.cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue'])    
+
+    elif n_classes == 5:
+        class_lookup = {0: "PE", 1: "AE", 2: "PT", 3: "AT", 4: "Bgd"}
+        colors = itls.cycle(['navy', 'turquoise', 'darkorange', 'cornflowerblue',
+                         'teal', 'olive'])
+
+    for i, color in zip(range(n_classes), colors):
         plt.plot(fpr[i], tpr[i], color=color, lw=lw,
                  label='ROC curve of class {0} (area = {1:0.2f})'
                  ''.format(class_lookup[i], roc_auc[i]))

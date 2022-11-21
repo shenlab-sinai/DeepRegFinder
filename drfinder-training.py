@@ -95,6 +95,7 @@ check_iters = dataMap['check_iters']
 train_logs = os.path.join(output_folder, 'train_logs')
 confus_mat_name = dataMap['confus_mat_name']
 precision_recall_curve_name = dataMap['precision_recall_curve_name']
+roc_curve_name = dataMap['roc_curve_name']
 pred_out_name = dataMap['pred_out_name']
 summary_out_name = dataMap['summary_out_name']
 
@@ -167,12 +168,13 @@ test_mAP = mAP_conf_interval(truevals, probs, num_classes=num_classes, bs_sample
 if num_classes == 2:
         lb = LabelBinarizer()
         binvals = lb.fit_transform(truevals)
-        binvals = np.hstack((binvals, 1 - binvals))	
+        binvals = np.hstack((1- binvals, binvals))	
 
 elif num_classes == 3 or num_classes == 5:
 	binvals = label_binarize(truevals, classes=list(range(num_classes)))
 
 fpr, tpr, roc_auc, precision, recall, average_precision = get_statistics(binvals, probs, n_classes=num_classes)
+
 
 precision_recall = compute_precision(truevals, predictions)
 precision_val, recall_val  = precision_recall['precision'], precision_recall['recall']
@@ -250,6 +252,10 @@ cm.to_csv(os.path.join(output_folder, confus_mat_name + '.csv'))
 # precision-recall curve
 pr_curve = plot_pr(precision, recall, average_precision, num_classes)
 plt.savefig(os.path.join(output_folder, precision_recall_curve_name + '.png'))
+
+# ROC curve
+roc_curve = plot_rocs(fpr, tpr, roc_auc, num_classes)
+plt.savefig(os.path.join(output_folder, roc_curve_name + '.png'))
 
 # test set predictions.
 df = np.stack([truevals, predictions], axis=1)
