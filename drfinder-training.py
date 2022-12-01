@@ -4,6 +4,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from DeepRegFinder.nn_models import create_model
 from sklearn.preprocessing import label_binarize
 import torch
+import argparse
 import torch.nn as nn
 import numpy as np
 import pandas as pd
@@ -20,6 +21,12 @@ import os
 Takes in yaml file as first input
 Takes in name of output folder as second input
 """
+parser=argparse.ArgumentParser(
+        description='''This module trains a model using the read coverage from drfinder-preprocessing.py module as input. Users can specify the neural network structure and other parameters such as learning rate, number of epochs and batch size. See https://github.com/shenlab-sinai/DeepRegFinder for details.''')
+parser.add_argument('training_data.yaml', help='Name of the training_data.yaml file')
+parser.add_argument('output', help='Name of the output folder (same as what was used for drfinder-preprocessing.py)')
+args=parser.parse_args()
+
 params = sys.argv[1]
 with open(params) as f:
     # use safe_load instead load

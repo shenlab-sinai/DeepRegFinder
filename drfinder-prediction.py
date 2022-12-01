@@ -5,6 +5,7 @@ from DeepRegFinder.nn_models import create_model
 import numpy as np 
 import pandas as pd
 import torch
+import argparse
 from torch.utils.data import DataLoader
 import sys
 import yaml
@@ -20,6 +21,12 @@ from pybedtools import BedTool
 Takes in yaml file as first input
 Takes in name of output folder as second input
 """
+parser=argparse.ArgumentParser(
+        description='''This module runs the trained models on the genomic read coverage to perform classifications for each 2 Kb window of the genome. See https://github.com/shenlab-sinai/DeepRegFinder for details.''')
+parser.add_argument('wg_prediction_data.yaml', help='Name of the wg_prediction_data.yaml file')
+parser.add_argument('output', help='Name of the output folder (same as what was used for drfinder-preprocessing.py and drfinder-training.py)')
+args=parser.parse_args()
+
 params = sys.argv[1]
 with open(params) as f:
     # use safe_load instead load

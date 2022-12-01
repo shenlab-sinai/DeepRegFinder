@@ -6,7 +6,7 @@ import sys
 import os
 import time
 import pandas as pd
-
+import argparse
 """
 First argument: input .yaml file 
 Second argument: name for output folder where files stored
@@ -17,6 +17,12 @@ def main():
     """
     Taking in input data from yaml file
     """
+    parser=argparse.ArgumentParser(
+        description='''This module uses genomic annotation, peak lists and ChIP-seq alignment files specified in the preprocessing_data.yaml file to build a training set for read coverage of known enhancers, promoters and randomly selected background genomic regions. See https://github.com/shenlab-sinai/DeepRegFinder for details.''')
+    parser.add_argument('preprocessing.yaml', help='Name of the preprocessing.yaml file')
+    parser.add_argument('output', help='Name of the output folder')
+    args=parser.parse_args()
+
     start = time.time()
     params = sys.argv[1]
     with open(params) as f:
