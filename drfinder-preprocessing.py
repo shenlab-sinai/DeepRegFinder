@@ -18,7 +18,7 @@ def main():
     Taking in input data from yaml file
     """
     parser=argparse.ArgumentParser(
-        description='''This module uses genomic annotation, peak lists and ChIP-seq alignment files specified in the preprocessing_data.yaml file to build a training set for read coverage of known enhancers, promoters and randomly selected background genomic regions. See https://github.com/shenlab-sinai/DeepRegFinder for details.''')
+        description='''This module uses genomic annotation, peak lists and ChIP-seq alignment files specified in the preprocessing_data.yaml file to build a training, validation and test set for read coverage of known enhancers, promoters and randomly selected background genomic regions. See https://github.com/shenlab-sinai/DeepRegFinder for details.''')
     parser.add_argument('preprocessing.yaml', help='Name of the preprocessing.yaml file')
     parser.add_argument('output', help='Name of the output folder')
     args=parser.parse_args()
@@ -215,11 +215,10 @@ def main():
                                 nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
 
         elif num_classes == 2 or num_classes == 3:
-
             make_tensor_dataset(None, None, None, None, enhancers, unslopped_tss, final_background, 
-                    histone_compressed, train_chrom, val_chrom, test_chrom, window_width, number_of_windows, 
-                    output_folder, bkg_samples=bkg_samples, 
-                    nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
+                    		histone_compressed, train_chrom, val_chrom, test_chrom, window_width, number_of_windows, 
+                    		output_folder, bkg_samples=bkg_samples, 
+                    		nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
 
         print('Finished making train-val-test datasets')
     

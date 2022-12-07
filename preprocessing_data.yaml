@@ -1,5 +1,8 @@
 # Data for Genome Processing.
 genome: hg38
+
+# Would you like to split the train, val and test set by chromosomes? If so, fill the 
+# following lists. If not, leave the lists empty
 train_chrom: ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7','chr8', 'chr9'] 
 val_chrom: ['chr10', 'chr11', 'chr12', 'chr13','chr14', 'chr15', 'chr16', 'chr17']
 test_chrom: ['chr18', 'chr19', 'chr20','chr21', 'chr22', 'chrX', 'chrY', 'chrM']
