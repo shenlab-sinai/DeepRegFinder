@@ -562,7 +562,12 @@ def build_histone_tensors(region_bed, hist_cnt_file, positives, negatives,
                     rlist.append(r_)
                     ylist.append(label)
     # Assemble the data and do sampling.
-    hist_t = np.stack(dlist)
+    try:
+        hist_t = np.stack(dlist)
+    except:
+        print("The nz_cutoff you have set is too high.")
+        print("Try decreasing the nz_cutoff in preprocessing.yaml file")
+        sys.exit(1)
     label_t = np.array(ylist)
     if samples is not None and samples < len(hist_t):
         ix = np.sort(np.random.choice(len(hist_t), samples, replace=False))
