@@ -40,15 +40,15 @@ def main():
     test_chrom = dataMap['test_chrom']
 
     try:
+        valids = dataMap['valid_chromosomes']
+        genome_size_file = None
+    except:
         # genome_size_file expected format:
         # chr1<TAB>1234567
         # chr2<TAB>1234567
         genome_size_file = dataMap['genome_size_file']
         df = pd.read_csv(genome_size_file, header=None, delim_whitespace=True)
         valids = df.iloc[:, 0].tolist()
-    except KeyError:
-        valids = dataMap['valid_chromosomes']
-        genome_size_file = None
     window_width = dataMap['window_width']
     number_of_windows = dataMap['number_of_windows']
     num_classes = dataMap['num_classes']
