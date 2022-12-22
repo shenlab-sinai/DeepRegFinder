@@ -625,32 +625,64 @@ def make_tensor_dataset(positive_enh, negative_enh, positive_tss, negative_tss,
 
         print("Made Enhancer histone tensor")
 
+
+        arg_dict = {"region_bed": tss, "hist_cnt_file": hist_cnt_file,
+                    "positives": None, "negatives": None, "window_width": window_width,
+                    "number_of_windows": number_of_windows, "is_bkg": False,
+                    "is_enhancer_binary": False, "samples": None, "nz_cutoff": nz_cutoff,
+                    "out_bed": None, "base_label": 0}
+        if train_chrom:
+            tss_X_train, tss_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+            tss_X_val, tss_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom)
+            tss_X_test, tss_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom)
+        else:
+            tss_X, tss_y = build_histone_tensors(**arg_dict, chrom_set=train_chrom)
+
+        print("Made tss histone tensor")
+
+
         arg_dict = {"region_bed": background, "hist_cnt_file": hist_cnt_file,
                     "positives": None, "negatives": None, "window_width": window_width,        
                     "number_of_windows": number_of_windows, "is_bkg": True,
                     "is_enhancer_binary": False, "nz_cutoff": nz_cutoff,         
                     "out_bed": None, "base_label": 0}
         if train_chrom:
-            bkg_samples = int(bkg_samples/3)
-            bg_X_train, bg_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom, samples=bkg_samples)
-            bg_X_val, bg_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom, samples=bkg_samples)
-            bg_X_test, bg_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom, samples=bkg_samples)
+            bkg_by_3 = bkg_samples/3
+            bkg_samples_train = int(bkg_by_3 - len(tss_y_train))
+            bkg_samples_val = int(bkg_by_3 - len(tss_y_val))
+            bkg_samples_test = int(bkg_by_3 - len(tss_y_test))
+
+            sample_numbers = [bkg_samples_train, bkg_samples_val, bkg_samples_test]
+
+            if all(i > 0 for i in sample_numbers):
+                bg_X_train, bg_y_train = build_histone_tensors(**arg_dict, chrom_set=train_chrom, samples=bkg_samples_train)
+                bg_X_val, bg_y_val = build_histone_tensors(**arg_dict, chrom_set=val_chrom, samples=bkg_samples_val)
+                bg_X_test, bg_y_test = build_histone_tensors(**arg_dict, chrom_set=test_chrom, samples=bkg_samples_test)
+            else:
+                print("Please increase the 'bkg_samples' value in preprocessing.yaml file.")
+                sys.exit(1)
+
         else:
+            bkg_samples = int(bkg_samples - len(tss_y))
             bg_X, bg_y = build_histone_tensors(**arg_dict, chrom_set=train_chrom, samples=bkg_samples)
 
         print("Made Background histone tensor")
 
         # Concat enhancer and bkg
         if train_chrom:
-            train_X = np.concatenate([enh_X_train, bg_X_train])
-            train_y = np.concatenate([enh_y_train, bg_y_train])
-            val_X = np.concatenate([enh_X_val, bg_X_val])
-            val_y = np.concatenate([enh_y_val, bg_y_val])
-            test_X = np.concatenate([enh_X_test, bg_X_test])
-            test_y = np.concatenate([enh_y_test, bg_y_test])
+            train_X = np.concatenate([enh_X_train, tss_X_train, bg_X_train])
+            train_y = np.concatenate([enh_y_train, tss_y_train, bg_y_train])
+            val_X = np.concatenate([enh_X_val, tss_X_val, bg_X_val])
+            val_y = np.concatenate([enh_y_val, tss_y_val, bg_y_val])
+            test_X = np.concatenate([enh_X_test, tss_X_test, bg_X_test])
+            test_y = np.concatenate([enh_y_test, tss_y_test, bg_y_test])
         else:
-            train_X = np.concatenate([enhancer_X, bg_X])
-            train_y = np.concatenate([enhancer_y, bg_y])
+            train_X = np.concatenate([enhancer_X, tss_X, bg_X])
+            train_y = np.concatenate([enhancer_y, tss_y, bg_y])
+
+
+
+
 
     # Build tensors for enhancer, TSS and background.
     elif num_classes == 3:
