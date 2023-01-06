@@ -71,6 +71,7 @@ def main():
     except KeyError:
         TFBS = None
     
+
     #Data for active poised clustering
     if num_classes == 5:
         try:
@@ -78,9 +79,9 @@ def main():
             antisense_bam_file = dataMap['antisense_bam_file']
             groseq_bam_file = None
         except KeyError:
-            groseq_bam_file = dataMap['groseq_bam_file']
             sense_bam_file = None
             antisense_bam_file = None
+            groseq_bam_file = dataMap['groseq_bam_file']
 
         groseq_logtrans = dataMap['groseq_log_transformation']
     

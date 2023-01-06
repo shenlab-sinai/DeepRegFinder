@@ -99,7 +99,7 @@ nz_cutoff: 5 # number of nonzero bins in a region; this cutoff is used to discar
 val_p: 0.2 # validation set proportion.
 test_p: 0.2 # test set proportion.
 
-# use when num_class is 5. Else, set following fields to None 
+# Use when num_class is 5. Else, comment out following lines
 # Path to data with the sense and antisense GRO-seq bam file.
 # When you don't have strand-specific GRO-seq, comment the following two
 # lines and use "groseq_bam_file".
