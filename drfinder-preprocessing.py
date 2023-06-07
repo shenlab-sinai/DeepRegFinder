@@ -7,6 +7,7 @@ import os
 import time
 import pandas as pd
 import argparse
+import shutil
 """
 First argument: input .yaml file 
 Second argument: name for output folder where files stored
@@ -222,6 +223,15 @@ def main():
                     		nz_cutoff=nz_cutoff, val_p=val_p, test_p=test_p, num_classes=num_classes)
 
         print('Finished making train-val-test datasets')
+    
+    # delete intermediate files
+    if dataMap['delete_intermediate_files'] == True:
+        shutil.rmtree(os.path.join(output_folder, 'enhancer_data'))
+        shutil.rmtree(os.path.join(output_folder, 'background_data'))
+        shutil.rmtree(os.path.join(output_folder, 'genome_data'))
+    
+    if dataMap['num_classes'] == 5:
+        shutil.rmtree(os.path.join(output_folder, 'groseq_data'))
     
     # Print time.
     elapsed = time.time() - start

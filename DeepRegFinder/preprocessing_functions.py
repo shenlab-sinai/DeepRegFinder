@@ -469,7 +469,6 @@ def positive_negative_clustering(sense_file, antisense_file, groseq_file=None):
 
         positive_labs = binary_clustering(groseq_file)
         negative_labs = np.logical_not(positive_labs)
-        print(positive_labs)
         coordinates = pd.read_csv(groseq_file, delim_whitespace=True)   
         positive_labs = pd.DataFrame(data={'positive_labs': positive_labs, 'coords': coordinates.iloc[:, 1]})
         negative_labs = pd.DataFrame(data={'negative_labs': negative_labs, 'coords': coordinates.iloc[:, 1]})

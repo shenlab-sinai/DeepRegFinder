@@ -108,3 +108,6 @@ antisense_bam_file : 'example_dat/groseq/h1-groseq-antisense.bam'
 # groseq_bam_file: None  # for non-strand-specific GRO-seq.
 groseq_log_transformation: True # Whether you want to log transform the reads 
                                 # to help K-means clustering.
+
+# Option to delete intermediate files
+delete_intermediate_files: True
