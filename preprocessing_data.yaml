@@ -33,11 +33,11 @@ valid_chromosomes: ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7',
 # Should be of the following directory structure:
 # histones/
 #     histone1/
-#         histone1_chipseqassay_rep1.bam
-#         histone1_chipseqassay_rep2.bam
+#         histone1_rep1.bam
+#         histone1_rep2.bam
 #     histone2/
-#         histone2_chipseqassay_rep1.bam
-#         histone2_chipseqassay_rep2.bam
+#         histone2_rep1.bam
+#         histone2_rep2.bam
 # Note: histone files must be of format xxx_repN.bam where N represents the rep number
 #       Even when you have only one replicate, name it as xxx_rep1.bam.
 histone_folder : 'example_dat/histones'
@@ -93,7 +93,7 @@ TFBS:
  - 'example_dat/tfbs/oct4.bed'
 
 # Model training related parameters.
-bkg_samples: 100000 # number of bkg samples.
+bkg_samples: 30000 # number of bkg samples.
 nz_cutoff: 5 # number of nonzero bins in a region; this cutoff is used to discard 
              # regions with low information content, mostly empty background regions.
 val_p: 0.2 # validation set proportion.
