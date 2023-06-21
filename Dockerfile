@@ -34,10 +34,10 @@ RUN wget https://sourceforge.net/projects/subread/files/subread-2.0.3/subread-2.
 RUN tar xzvf subread-2.0.3-Linux-x86_64.tar.gz
 
 # Install DeepRegFinder
-RUN wget -P ~/ https://github.com/shenlab-sinai/DeepRegFinder/archive/master.zip
+RUN wget -P ~/ https://github.com/shenlab-sinai/DeepRegFinder/archive/refs/heads/master.zip
 WORKDIR /root
 RUN unzip master.zip
 WORKDIR /root/DeepRegFinder-master
-RUN pip install -e .
+ENV PATH="${PATH}:/root/DeepRegFinder-master"
 
 ENV PATH="/subread-2.0.3-Linux-x86_64/bin:/DeepRegFinder/DeepRegFinder:${PATH}"
