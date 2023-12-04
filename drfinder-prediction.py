@@ -84,8 +84,14 @@ print('Prediction finished. Elapsed time: {:.1f}s.'.format(elapsed))
 prob_conf_cutoff = dataMap['prob_conf_cutoff']
 output_bed = os.path.join(output_folder, dataMap['output_bed'])
 known_tss_file = dataMap['known_tss_file']
+
+if num_classes == 5:
+	ignore_labels_val = 4
+elif num_classes == 2 or num_classes == 3:
+	ignore_labels_val = 0
+
 wg_blocks = process_genome_preds(
-    wg_preds, wg_info[0], wg_info[1], wg_maxprobs, ignore_labels=[4], 
+    wg_preds, wg_info[0], wg_info[1], wg_maxprobs, ignore_labels=[ignore_labels_val], 
     maxprob_cutoff=prob_conf_cutoff, nb_block=None)
 bed_dict = post_merge_blocks(wg_blocks, window_width, number_of_windows, 
                              num_classes=num_classes, 
