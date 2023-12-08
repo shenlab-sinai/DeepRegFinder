@@ -390,7 +390,7 @@ def prediction_loop(model, num_classes, device, dat_loader, pred_only=False, cri
             # transpose: batches x items -> items x batches.
             others = list(map(list, list(zip(*others))))
             info_list = [ np.concatenate(item_list) for item_list in others]
-            return predictions, np.max(probs, axis=1), info_list
+            return predictions, probs, info_list
 
 
 def mAP_conf_interval(label, score, num_classes=5, bs_samples=1000, 

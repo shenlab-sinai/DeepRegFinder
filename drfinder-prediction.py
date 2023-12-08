@@ -73,9 +73,12 @@ model.load_state_dict(torch.load(model_state_dict, map_location=device))
 # Make predictions.
 data_augment = dataMap['data_augment']
 time_begin = time()
-wg_preds, wg_maxprobs, wg_info = prediction_loop(
+wg_preds, wg_probs, wg_info = prediction_loop(
     model, num_classes, device, wg_loader, pred_only=True, dat_augment=data_augment, 
     nb_batch=None, show_status=True)
+
+wg_maxprobs = np.max(wg_probs, axis=1)
+
 elapsed = time() - time_begin
 print('Prediction finished. Elapsed time: {:.1f}s.'.format(elapsed))
 
@@ -90,9 +93,51 @@ if num_classes == 5:
 elif num_classes == 2 or num_classes == 3:
 	ignore_labels_val = 0
 
+
+
+
+# get probabilities for a bed file
+bed_file_for_prediction = dataMap['bed_file_for_prediction']
+
+if bed_file_for_prediction != 'None':
+
+	bed_file_chrom, bed_file_starts, bed_file_ends = [], [], []
+
+	with open(bed_file_for_prediction, "r") as f:
+		for lines in f:
+			lines = lines.strip().split("\t")
+			bed_file_chrom.append(lines[0])
+			bed_file_starts.append(int(lines[1]))
+			bed_file_ends.append(int(lines[2]))
+
+	wg_chroms = wg_info[0]
+	wg_starts_bins = wg_info[1]
+	predictions_filename = bed_file_for_prediction.split(".bed")[0] + "_predictions.bed"
+
+	with open(predictions_filename, "w") as outfile:
+		for ind_bed_file, start_coords in enumerate(bed_file_starts):
+	
+			probabilites_for_this_reg = []
+			for index_wg, mid_points in enumerate(wg_starts_bins):
+				if (bed_file_chrom[ind_bed_file] == wg_chroms[index_wg]):
+					if bed_file_starts[ind_bed_file] <= (mid_points-1000) <= mid_points+1000 <= bed_file_ends[ind_bed_file]:
+						probabilites_for_this_reg.append(wg_probs[index_wg])
+			chrom_name = bed_file_chrom[ind_bed_file]
+			start_coord = str(bed_file_starts[ind_bed_file])
+			end_coord = str(bed_file_ends[ind_bed_file])
+		
+			outfile.write(chrom_name+"\t"+start_coord+"\t"+end_coord+"\t"+ "\t".join(map(str, np.max(probabilites_for_this_reg, axis=0)))+"\n")
+			probabilites_for_this_reg = []
+
+
+
+
+
+
 wg_blocks = process_genome_preds(
     wg_preds, wg_info[0], wg_info[1], wg_maxprobs, ignore_labels=[ignore_labels_val], 
     maxprob_cutoff=prob_conf_cutoff, nb_block=None)
+
 bed_dict = post_merge_blocks(wg_blocks, window_width, number_of_windows, 
                              num_classes=num_classes, 
                              known_tss_file=known_tss_file)

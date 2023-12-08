@@ -22,3 +22,4 @@ output_txt: 'pred_summary.txt' # prediction summary TXT.
 # This is an output of the preprocessing module.
 tpms_file: 'output/tpms_data/final_tpms.bed'
 tpm_bps_added: 2500  # distance within TPMs to define "validated".
+bed_file_for_prediction: None
