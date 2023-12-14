@@ -96,10 +96,17 @@ elif num_classes == 2 or num_classes == 3:
 
 
 
+
 # get probabilities for a bed file
 bed_file_for_prediction = dataMap['bed_file_for_prediction']
 
 if bed_file_for_prediction != 'None':
+	if num_classes == 3:
+		header_name = ['chr', 'start', 'end', 'Bkg', 'TSS', 'Enhancer']
+	elif num_classes == 2:
+		header_name = ['chr', 'start', 'end', 'Bkg', 'Enhancer']
+	elif num_classes == 5:
+		header_name = ['chr', 'start', 'end', 'PE', 'AE', 'PT', 'AT', 'Bkg']	
 
 	bed_file_chrom, bed_file_starts, bed_file_ends = [], [], []
 
@@ -111,22 +118,23 @@ if bed_file_for_prediction != 'None':
 			bed_file_ends.append(int(lines[2]))
 
 	wg_chroms = wg_info[0]
-	wg_starts_bins = wg_info[1]
-	predictions_filename = bed_file_for_prediction.split(".bed")[0] + "_predictions.bed"
+	wg_midpts_bins = wg_info[1]
+	predictions_filename = bed_file_for_prediction.split(".bed")[0] + "_predictions.txt"
 
 	with open(predictions_filename, "w") as outfile:
+		outfile.write("\t".join(header_name)+"\n")
 		for ind_bed_file, start_coords in enumerate(bed_file_starts):
 	
-			probabilites_for_this_reg = []
-			for index_wg, mid_points in enumerate(wg_starts_bins):
+			probability_for_this_reg = []
+			for index_wg, mid_points in enumerate(wg_midpts_bins):
 				if (bed_file_chrom[ind_bed_file] == wg_chroms[index_wg]):
-					if bed_file_starts[ind_bed_file] <= (mid_points-1000) <= mid_points+1000 <= bed_file_ends[ind_bed_file]:
-						probabilites_for_this_reg.append(wg_probs[index_wg])
+					
+					if (bed_file_starts[ind_bed_file] == mid_points-1000) and  (mid_points+1000 == bed_file_ends[ind_bed_file]):
+						probability_for_this_reg = wg_probs[index_wg]
 			chrom_name = bed_file_chrom[ind_bed_file]
 			start_coord = str(bed_file_starts[ind_bed_file])
 			end_coord = str(bed_file_ends[ind_bed_file])
-		
-			outfile.write(chrom_name+"\t"+start_coord+"\t"+end_coord+"\t"+ "\t".join(map(str, np.max(probabilites_for_this_reg, axis=0)))+"\n")
+			outfile.write(chrom_name+"\t"+start_coord+"\t"+end_coord+"\t"+ "\t".join(map(str, probability_for_this_reg))+"\t"+header_name[3:][np.argmax(probability_for_this_reg)]+"\n")
 			probabilites_for_this_reg = []
 
 
