@@ -102,11 +102,11 @@ bed_file_for_prediction = dataMap['bed_file_for_prediction']
 
 if bed_file_for_prediction != 'None':
 	if num_classes == 3:
-		header_name = ['chr', 'start', 'end', 'Bkg', 'TSS', 'Enhancer']
+		header_name = ['chr', 'start', 'end', 'Bkg', 'TSS', 'Enhancer', 'Predicted_Class']
 	elif num_classes == 2:
-		header_name = ['chr', 'start', 'end', 'Bkg', 'Enhancer']
+		header_name = ['chr', 'start', 'end', 'Bkg', 'Enhancer', 'Predicted_Class' ]
 	elif num_classes == 5:
-		header_name = ['chr', 'start', 'end', 'PE', 'AE', 'PT', 'AT', 'Bkg']	
+		header_name = ['chr', 'start', 'end', 'PE', 'AE', 'PT', 'AT', 'Bkg', 'Predicted_Class']	
 
 	bed_file_chrom, bed_file_starts, bed_file_ends = [], [], []
 
