@@ -17,9 +17,8 @@ Shen Lab Website: http://labs.neuroscience.mssm.edu/project/shen-lab/
 
 Icahn School of Medicine at Mount Sinai, New York, NY, USA
 
-**DeepRegFinder** is a deep learning based program to identify DNA regulatory elements using ChIP-seq. See our paper on bioRxiv:
-
-- Ramakrishnan, A., Wangensteen, G., Kim, S., Nestler, E. J. & Shen, L. DeepRegFinder: Deep Learning-Based Regulatory Elements Finder. bioRxiv 2021.04.27.441658 (2021) doi:10.1101/2021.04.27.441658.
+**DeepRegFinder** is a deep learning based program to identify DNA regulatory elements using ChIP-seq. See our paper on *Bioinformatics Advances*:
+- A. Ramakrishnan, G. Wangensteen, S. Kim, E. J. Nestler, and L. Shen, “DeepRegFinder: deep learning-based regulatory elements finder,” Bioinformatics Advances, vol. 4, no. 1, p. vbae007, Jan. 2024, doi: 10.1093/bioadv/vbae007.
 
 ## Overview
 Identifying DNA regulatory elements such as enhancers and promoters has always been an important topic in the epigenomics field. Although certain histone marks are known to exhibit characteristic binding patterns at enhancers and promoters, the exact rules to classify them do not exist. This is where machine learning comes to the rescue. You can train a machine learning model on the ChIP-seq data of the known enhancers and promoters and then use the model to identify them elsewhere. 
