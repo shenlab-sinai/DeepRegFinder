@@ -51,12 +51,24 @@ def _logtrans_featcnt_file(file):
 """
 Normalize the read counts from featureCounts.
 """
-def _norm_featcnt_file(file):
+def _norm_featcnt_file(file, mode):
     df = pd.read_csv(file, comment="#", delim_whitespace=True)
-    # Normalize to 100M reads.
-    df.iloc[:, -1] *= 100e6/df.iloc[:, -1].sum()
-    df.to_csv(file, sep="\t", index=False)
 
+    if mode == 'preprocessing':
+        # Normalize to 100M reads.
+        with open(file+"_coverage.txt", "w") as outfile:
+            outfile.write(str(df.iloc[:, -1].sum())+"\n")
+        df.iloc[:, -1] *= 100e6/df.iloc[:, -1].sum()
+        df.to_csv(file, sep="\t", index=False)
+
+    elif mode == 'prediction_custom':
+        coverage = 0
+        with open(file+"_coverage.txt", "r") as f:
+            for lines in f:
+                lines = lines.strip().split()
+                coverage = float(lines[0])
+        df.iloc[:, -1] *= 100e6/coverage
+        df.to_csv(file, sep="\t", index=False)
 
 """
 Runs feature counts on all bam files in the active_poised folder
@@ -225,8 +237,8 @@ Runs featureCounts on all reps of chiq-seq samples for each histone mark
 Calculates the average of the reps for each histone mark 
 Stores these averages as columns in the alltogether_notnormed.txt
 """
-def process_histones(genome_saf, histone_path, output_folder, 
-                     hist_logtrans=False, cpu_threads=1):
+def process_histones(genome_saf, histone_path, output_folder, mode,
+                     outfilename, hist_logtrans=False, cpu_threads=1):
     histone_out_folder = os.path.join(output_folder, 'histone_data')
     if not os.path.exists(histone_out_folder):
         os.mkdir(histone_out_folder)
@@ -259,7 +271,7 @@ def process_histones(genome_saf, histone_path, output_folder,
     
     # Normalize read counts for each rep before averaging them.
     for file in out_files:
-        _norm_featcnt_file(file)
+        _norm_featcnt_file(file, mode)
 
     # Log transforming data if necessary
     if hist_logtrans:
@@ -299,11 +311,12 @@ def process_histones(genome_saf, histone_path, output_folder,
     hist_cnt_df = pd.concat([bin_cols, hist_cnt_merged], axis=1)
     print('Done', flush=True)
     if hist_logtrans:
+        outfilename = outfilename.split(".")[0] + "_logtrans.txt"
         df_out_path = os.path.join(histone_out_folder, 
-                                   "alltogether_notnormed_logtrans.txt")
+                                   outfilename)
     else:
         df_out_path = os.path.join(histone_out_folder, 
-                                   "alltogether_notnormed.txt")
+                                   outfilename)
     hist_cnt_df.to_csv(df_out_path, sep="\t", index=False)
 
 

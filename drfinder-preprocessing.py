@@ -110,14 +110,17 @@ def main():
                                      'windowed.filtered.saf')
 
     # Get histone mark counts for the above defined regions.
-    process_histones(genome_saf_format, histone_path, output_folder, 
-                     hist_logtrans, cpu_threads=cpu_threads)
+    outfilename='alltogether_notnormed.txt'
+    process_histones(genome_saf_format, histone_path, output_folder, outfilename=outfilename,
+                     mode='preprocessing', hist_logtrans, cpu_threads=cpu_threads)
     if hist_logtrans:
+        outfilename = outfilename.split(".")[0] + "_logtrans.txt"
         all_histone_data = os.path.join(
-            output_folder, 'histone_data', 'alltogether_notnormed_logtrans.txt')
+            output_folder, 'histone_data', outfilename)
     else:
-        all_histone_data = os.path.join(
-            output_folder, 'histone_data', 'alltogether_notnormed.txt')
+        
+        all_histone_data = os.path.join((
+            output_folder, 'histone_data', outfilename)
     print('Finished processing histones')
 
     # Compressing + indexing files for tensor creation

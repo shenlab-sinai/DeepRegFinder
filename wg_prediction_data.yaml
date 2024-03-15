@@ -1,26 +1,40 @@
-# The compressed genomic bin count file. Make sure the corresponding '.tbi' file
-# is also in the same folder.
-whole_genome_bincnt_file: 'output/histone_data/alltogether_notnormed.txt.gz'
+# Parameters common for whole genome predictions and custom BED predictions
 # The mean and std of the histone marks used for training. This is an output of 
 # the training module.
 chann_stats_file: 'output/tensor_data/chann_stats.csv'
 net_choice: 'ConvNet'  # network choice, shall be the same as training.
-conv_rnn: True  # shall be the same as training.
-num_classes: 2 # shall be the same as preprocessing and training.
-window_width: 100
-number_of_windows: 20
-batch_size: 10000
-prob_conf_cutoff: 0.5  # output only prediction with prob above this cutoff.
-data_augment: False
-# known TSSs to subtract from predicted enhancers.
-known_tss_file: 'output/tss_data/enhancer_slopped_tss.bed'
 # Saved model state (parameters) from the training module.
 model_state_dict: 'output/model/best-mAP-model.pt'
+conv_rnn: True  # shall be the same as training.
+num_classes: 2 # shall be the same as preprocessing and training.
+num_marks: 12
+data_augment: False
+window_width: 100
+number_of_windows: 20
+cpu_threads: 8
+
+# Parameters specific for prediction on the whole genome
+# You may set whole_genome_prediction to False if you want to skip this step
+whole_genome_prediction: True
+# The compressed genomic bin count file. Make sure the corresponding '.tbi' file
+# is also in the same folder
+whole_genome_bincnt_file: 'output/histone_data/alltogether_notnormed.txt.gz'
+prob_conf_cutoff: 0.5  # output only the whole genome predictions with prob above this cutoff.
+batch_size: 10000
+# known TSSs to subtract from predicted enhancers.
+known_tss_file: 'output/tss_data/enhancer_slopped_tss.bed'
 output_bed: 'wg_preds.bed' # predicted enhancers and promoters.
 output_txt: 'pred_summary.txt' # prediction summary TXT.
 # True positive mark (TPM) file can be used to calculate enhancer validation rate.
 # This is an output of the preprocessing module.
 tpms_file: 'output/tpms_data/final_tpms.bed'
 tpm_bps_added: 2500  # distance within TPMs to define "validated".
-bed_file_for_prediction: None # please specify the name of the bed file for which 
+
+# Parameters specific for prediction on custom BED file
+# You may set bed_file_prediction to False if you want to skip this step
+bed_file_prediction: False 
+bed_file_for_prediction: 'bgwindowed.filtered.bed' 
+# please specify the name of the bed file for which 
 # you would like to make predictions. Bed file should contain 2kb regions divisible by 100
+histone_folder : 'example_dat/histones'
+predictions_filename: "preds.txt"
