@@ -111,15 +111,15 @@ def main():
 
     # Get histone mark counts for the above defined regions.
     outfilename='alltogether_notnormed.txt'
-    process_histones(genome_saf_format, histone_path, output_folder, outfilename=outfilename,
-                     mode='preprocessing', hist_logtrans, cpu_threads=cpu_threads)
+    process_histones(genome_saf_format, histone_path, output_folder, hist_logtrans, outfilename=outfilename,
+                      mode='preprocessing',  cpu_threads=cpu_threads)
     if hist_logtrans:
         outfilename = outfilename.split(".")[0] + "_logtrans.txt"
         all_histone_data = os.path.join(
             output_folder, 'histone_data', outfilename)
     else:
         
-        all_histone_data = os.path.join((
+        all_histone_data = os.path.join(
             output_folder, 'histone_data', outfilename)
     print('Finished processing histones')
 
