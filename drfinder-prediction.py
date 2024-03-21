@@ -262,7 +262,7 @@ def main():
 	if whole_genome_prediction == True:
     		run_whole_genome_prediction()
 
-	elif bed_file_prediction == True:
+	if bed_file_prediction == True:
     		run_custom_bed_prediction() 
 
 
