@@ -251,11 +251,10 @@ def run_custom_bed_prediction():
         class_lookup = {0: 'Poised_Enh', 1: 'Active_Enh', 2: 'Poised_TSS', 
                         3: 'Active_TSS', 4: 'Background'}
 
-
     with open(predictions_filename, "w") as outfile:
             for i in range(0, len(list(bed_preds))):
                     coordinates = ("\t".join(list(regions_t)[i]))
-                    outfile.write(class_lookup[list(bed_preds)[i]]+"\t"+coordinates+"\n")
+                    outfile.write(coordinates+"\t"+class_lookup[list(bed_preds)[i]]+"\t"+"\t".join(map(str, bed_probs[i]))+"\n")
 
 
 def main():
