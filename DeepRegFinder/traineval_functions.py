@@ -94,7 +94,6 @@ def plot_rocs(fpr, tpr, roc_auc, n_classes):
     plt.ylabel('True Positive Rate')
     plt.title('ROC curves for different classes')
     plt.legend(loc="lower right")
-    plt.show()
 
 
 def plot_confusion_matrix(cm, norm=True, n_classes=5):
